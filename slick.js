@@ -260,7 +260,7 @@ Director.prototype = {
         this.stop()
         switch(typeof destination) {
             case 'number':
-                destination = Math.max(0,Math.min(this.slides.length-1,destination))
+                destination = Math.max(1,Math.min(this.slides.length-1,destination))
                 this.gotoIndex(this.slides[destination])
                 break
             case 'string':
