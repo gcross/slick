@@ -31,10 +31,10 @@ var director
 //@+others
 //@+node:gcross.20110627234551.1201: ** Initialization
 //@+node:gcross.20110627234551.1180: *3* function initializeSlick
-function initialize() {
+function initializeSlick(script) {
     director = new Director(script)
     
-    window.addEventHandler("keydown",function(event) {
+    window.addEventListener("keydown",function(event) {
         switch(event.keyCode || event.charCode) {
             case SPACE_KEY:
                 if(director.animator) {
@@ -44,28 +44,32 @@ function initialize() {
                     else
                         animator.start()
                 } else {
-                    director.play()
+                    director.playSlide()
                 }
                 break
             case LEFT_KEY:
                 director.rewind()
+                break
             case RIGHT_KEY:
                 director.fastforward()
+                break
             case UP_KEY:
                 director.rewind(10)
+                break
             case DOWN_KEY:
                 director.fastforward(10)
+                break
         }
     },false)
     
     if(window.location.hash) {
         director.gotoSlide(window.location.hash.substring(1))
     } else {
-        director.play()
+        director.playUntilTagReached()
     }
+
+    document.documentElement.appendChild(director.stage.getNode())
 }
-//@+node:gcross.20110627234551.1203: *3* function installSlick
-function installSlick() { window.addEventListener("load",initializeSlick,false); }
 //@+node:gcross.20110626200911.1122: ** class Stage
 function Stage() {
     this.nodes = {}
@@ -73,17 +77,17 @@ function Stage() {
 }
 Stage.prototype = {
     //@+others
-    //@+node:gcross.20110626200911.1134: *3* addActor
-    addActor: function(name,actor) {
-        this[name] = actor
+    //@+node:gcross.20110626200911.1134: *3* addActorNode
+    addActorNode: function(name,actor) {
         var node = actor.getNode()
-        nodes[name] = node
+        this.nodes[name] = node
         return node
     },
     //@+node:gcross.20110626200911.1124: *3* appendActor
     appendActor: function(name,actor) {
+        this[name] = actor
         this.ordering.push(name)
-        this.node.appendChild(addActor(name,actor))
+        if(this.node) this.node.appendChild(this.addActorNode(name,actor))
     },
     //@+node:gcross.20110627234551.1169: *3* getActor
     getActor: function(name) { return this[name]; },
@@ -97,36 +101,44 @@ Stage.prototype = {
     },
     //@+node:gcross.20110627234551.1159: *3* getNode
     getNode: function() {
-        if(this.getNode == undefined) {
-            this.node = document.createElementNS(svg_namespace,"g")
-            for(name in this.ordering) {
-                var node = this[name].getNode()
-                nodes[name] = node
-                this.node.appendChild(node)
-            }
-        }
+        this.prepareNode()
         return this.node
+    },
+    //@+node:gcross.20110629133112.1177: *3* prepareNode
+    prepareNode: function() {
+        if(this.node == undefined) {
+            this.node = document.createElementNS(svg_namespace,"g")
+            var self = this
+            this.ordering.forEach(function(name) {
+                var node = self[name].getNode()
+                self.nodes[name] = node
+                self.node.appendChild(node)
+            })
+        }
     },
     //@+node:gcross.20110626200911.1125: *3* insertActorBefore
     insertActorBefore: function(name,actor,before_name) {
-        if(before_name) {
-            this.node.insertBefore(addActor(name,actor), nodes[before_name])
-            this.ordering.splice(this.ordering.indexOf(before_name),0,name)
-        } else {
-            appendActor(name,actor)
+        if(before_name == undefined) {
+            this.appendActor(name,actor)
+            return
         }
+        this[name] = actor
+        this.ordering.splice(this.ordering.indexOf(before_name),0,name)
+        if(this.node) this.node.insertBefore(addActorNode(actor),nodes[before_name])
     },
     //@+node:gcross.20110626200911.1129: *3* removeActor
     removeActor: function(name) {
         var actor = this[name]
         delete this[name]
-        this.node.removeChild(actor.node)
+        if(this.node) this.node.removeChild(actor.node)
         this.ordering.splice(this.ordering.indexOf(name),1)
         return actor
     },
     //@+node:gcross.20110626200911.1133: *3* update
     update: function() {
-        for(name in this.ordering) this[name].update()
+        this.prepareNode()
+        var self = this
+        this.ordering.forEach(function(name) { self[name].update(); })
     }
     //@-others
 }
@@ -193,17 +205,19 @@ function Director(script) {
     var tag_chunk_in_progress = false
     for(var index = 0; index < script.length; ++index) {
         if(typeof script[index] == "string") {
-            if(script[index]) tags[script[index]] = index
-            tag_chunk_in_progress = true
-        } else {
-            if(tag_chunk_in_progress) {
+            if(script[index]) this.tags[script[index]] = index
+            if(!tag_chunk_in_progress) {
                 ++slide
                 this.slides.push(index)
-                tag_chunk_in_progress = false
+                tag_chunk_in_progress = true
             }
+        } else {
+            tag_chunk_in_progress = false
         }
         this.script_slides[index] = slide
     }
+    this.slides.push(script.length)
+    this.script_slides.push(this.slides.length-1)
 
     this.script = script
     this.stage = new Stage
@@ -228,8 +242,10 @@ Director.prototype = {
     //@+node:gcross.20110627234551.1179: *3* fastforward
     fastforward: function(n) {
         if(n == undefined) n = 1
-        this.gotoSlide(this.script_slides[this.marker]-n)
+        this.gotoSlide(this.getCurrentSlide()+n)
     },
+    //@+node:gcross.20110629133112.1179: *3* getCurrentSlide
+    getCurrentSlide: function() { return this.script_slides[this.marker]; },
     //@+node:gcross.20110627234551.1175: *3* gotoIndex
     gotoIndex: function(index) {
         while(this.marker > index) {
@@ -251,7 +267,7 @@ Director.prototype = {
                 this.gotoIndex(this.tags[destination])
                 break
         }
-        window.location.hash = destination
+        this.updateLocation()
         this.update()
     },
     //@+node:gcross.20110627234551.1182: *3* play
@@ -277,13 +293,15 @@ Director.prototype = {
     //@+node:gcross.20110627234551.1185: *3* playSlide
     playSlide: function() {
         this.skipTagChunk()
-        this.playUntilTag()
+        this.playUntilTagReached()
     },
     //@+node:gcross.20110627234551.1187: *3* playUntilTagReached
     playUntilTagReached: function() {
-        if(!this.atTag()) {
+        if(this.marker >= this.script.length || this.atTag()) {
+            this.updateLocation()
+        } else {
             var self = this
-            play(function() { self.playUntilTagReached(); })
+            this.play(function() { self.playUntilTagReached(); })
         }
     },
     //@+node:gcross.20110627234551.1170: *3* prepare
@@ -297,17 +315,17 @@ Director.prototype = {
     },
     //@+node:gcross.20110627234551.1174: *3* retract
     retract: function() {
-        if(!atTag()) this.script[this.marker].retract(this.stage)
         --this.marker
+        if(!this.atTag()) this.script[this.marker].retract(this.stage)
     },
     //@+node:gcross.20110627234551.1177: *3* rewind
     rewind: function(n) {
         if(n == undefined) n = 1
-        this.gotoSlide(this.script_slides[this.marker]-n)
+        this.gotoSlide(this.getCurrentSlide()-n)
     },
     //@+node:gcross.20110627234551.1186: *3* skipTagChunk
     skipTagChunk: function() {
-        while(this.atTag()) advance()
+        while(this.atTag()) this.advance()
     },
     //@+node:gcross.20110627234551.1184: *3* stop
     stop: function() {
@@ -317,40 +335,37 @@ Director.prototype = {
         }
     },
     //@+node:gcross.20110627234551.1183: *3* update
-    update: function() { this.stage.update(); }
+    update: function() { this.stage.update(); },
+    //@+node:gcross.20110629133112.1178: *3* updateLocation
+    updateLocation: function() { window.location.hash = this.getCurrentSlide(); }
     //@-others
 }
 //@+node:gcross.20110627234551.1156: ** Augmentations
-//@+node:gcross.20110627234551.1155: *3* PositionBehaviour
-function augmentWithPositionBehavior(actor_class) {
-    var old_update = actor_class.update
-    actor_class.update = function() {
-        if(old_update) old_update.call(this)
-        node.setAttribute(svg_namespace,"x",this.x)
-        node.setAttribute(svg_namespace,"y",this.y)
+//@+node:gcross.20110629121436.1178: *3* appendToMethod
+function appendToMethod(prototype,name,new_method) {
+    var old_method = prototype[name]
+    if(old_method == undefined) {
+        prototype[name] = new_method
+    } else {
+        prototype[name] = function() {
+            old_method.apply(this,arguments)
+            new_method.apply(this,arguments)
+        }
     }
-    //augmentWithPropertySerialization(actor_class,"x","y")
-    augmentWithPrototype(actor_class,{x: 0, y: 0})
 }
-//@+node:gcross.20110627234551.1157: *3* PropertySerialization
-//@+at
-// function augmentWithPropertySerialization(actor_class) {
-//     var old_save = actor_class.save
-//     actor_class.save = function() {
-//         var data = old_save ? old_save.call(this) : {}
-//         for(int i = 1; i < arguments.length; ++i) data[arguments[i]] = this[arguments[i]]
-//         return data
-//     }
-//     var old_restore = actor_class.restore
-//     actor_class.restore = function(data) {
-//         if(old_restore) old_restore.call(this,data)
-//         for(int i = 1; i < arguments.length; ++i) this[arguments[i]] = data[arguments[i]]
-//     }
-// }
-//@+node:gcross.20110627234551.1158: *3* Prototype
-function augmentWithPrototype(cls,new_intermediate_prototype) {
-    new_intermediate_prototype.prototype = cls.prototype
-    cls.prototype = new_intermediate_prototype
+//@+node:gcross.20110629121436.1179: *3* augment
+function augment(cls,methods) {
+    for(var name in methods)
+        cls.prototype[name] = methods[name]
+}
+//@+node:gcross.20110627234551.1155: *3* augmentWithPositionBehavior
+function augmentWithPositionBehavior(actor_class) {
+    var prototype = actor_class.prototype
+    appendToMethod(prototype,"update",function () {
+        this.node.setAttributeNS(svg_namespace,"x",this.x)
+        this.node.setAttributeNS(svg_namespace,"y",this.y)
+    })
+    augment(actor_class,{x: 0, y: 0})
 }
 //@+node:gcross.20110627234551.1146: ** Actors
 //@+node:gcross.20110626200911.1139: *3* [ Actor prototype ]
@@ -361,22 +376,21 @@ var ActorPrototype = {
 
 ,   getNode: function() {
         if(this.node == undefined) {
-            this.node = createNode(true)
+            this.node = this.createNode(true)
         }
         return this.node
     }
 }
 //@+node:gcross.20110626200911.1135: *3* UseActor
 function UseActor(id) { this.id = id }
-UseActor.prototype = {
-    prototype: ActorPrototype
-
-,   createNode: function() {
+UseActor.prototype = Object.create(ActorPrototype)
+augment(UseActor,{
+    createNode: function() {
         var node = document.createElementNS(svg_namespace,"use")
-        node.setAttribute(xlink_namespace,"href","#"+this.id)
+        node.setAttributeNS(xlink_namespace,"href","#"+this.id)
         return node
     }
-}
+})
 augmentWithPositionBehavior(UseActor)
 //@+node:gcross.20110627234551.1147: ** Animations
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
@@ -397,15 +411,14 @@ function AnimationsInParallel(animations) {
             duration = animation.duration
     this.duration = duration
 }
-AnimationsInParallel.prototype = {
-    prototype: AnimationPrototype
-
-,   stepTo: function(stage,time) {
+AnimationsInParallel.prototype = Object.create(AnimationPrototype)
+augment(AnimationsInParallel,{
+    stepTo: function(stage,time) {
         for(animation in animations) {
             animation.stepTo(stage,Math.max(time,animation.duration))
         }
     }
-}
+})
 //@+node:gcross.20110626200911.1146: *3* AnimationsInSequence
 function AnimationsInSequence(animations) {
     var duration = 0
@@ -413,10 +426,9 @@ function AnimationsInSequence(animations) {
         duration += animation.duration
     this.duration = duration
 }
-AnimationsInSequence.prototype = {
-    prototype: AnimationPrototype
-
-,   stepTo: function(stage,time) {
+AnimationsInSequence.prototype = Object.create(AnimationPrototype)
+augment(AnimationsInSequence,{
+    stepTo: function(stage,time) {
         for(animation in animations) {
             var next_time = time - animation.duration
             if(next_time < 0) {
@@ -429,7 +441,7 @@ AnimationsInSequence.prototype = {
         var animation = animations[animations-length]
         animation.stepTo(stage,animation.duration)
     }
-}
+})
 //@+node:gcross.20110627234551.1162: ** Cast changes
 //@+node:gcross.20110627234551.1163: *3* Hire
 function Hire(name,actor,actor_name_after) {
@@ -439,11 +451,11 @@ function Hire(name,actor,actor_name_after) {
 }
 Hire.prototype = {
     advance: function(stage) {
-        stage.insertActorBefore(name,actor,actor_name_after)
+        stage.insertActorBefore(this.name,this.actor,this.actor_name_after)
     }
 
 ,   retract: function(stage) {
-        stage.removeActor(name)
+        stage.removeActor(this.name)
         this.actor.clearNode()
     }
 }
@@ -461,12 +473,12 @@ function Fire(name,actor,actor_name_after) {
 }
 Fire.prototype = {
     advance: function(stage) {
-        stage.removeActor(name)
+        stage.removeActor(this.name)
         this.actor.clearNode()
     }
 
 ,   retract: function(stage) {
-        stage.insertActorBefore(name,actor,actor_name_after)
+        stage.insertActorBefore(this.name,this.actor,this.actor_name_after)
     }
 }
 
