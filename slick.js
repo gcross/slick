@@ -37,6 +37,7 @@ function initializeSlick(script) {
     window.addEventListener("keydown",function(event) {
         switch(event.keyCode || event.charCode) {
             case SPACE_KEY:
+            case ENTER_KEY:
                 if(director.animator) {
                     var animator = director.animator
                     if(animator.active())
