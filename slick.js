@@ -586,6 +586,33 @@ function makeInterpolater(easing) {
         return interpolate(easing,duration,getObjectFromStage,property_name,v1,v2)
     }
 }
+//@+node:gcross.20110629233843.1185: *3* Fading
+function fadeOut(duration,getObjectFromStage,current_opacity) {
+    return function(stage) {
+        if(current_opacity == undefined)
+            current_opacity = getObjectFromStage(stage).style.opacity
+        if(current_opacity == undefined)
+            current_opacity = 1
+        return new
+            InterpolatingAnimation(
+                function(t) { return t; },
+                duration,
+                function(stage) { return getObjectFromStage(stage).style; },
+                "opacity",
+                0,
+                current_opacity
+            )
+    }
+}
+
+function fadeIn(duration,getObjectFromStage,current_opacity) {
+    return linear(
+        duration,
+        function(stage) { return getObjectFromStage(stage).style; },
+        "opacity",
+        1
+    )
+}
 //@+node:gcross.20110627234551.1162: ** Cast changes
 //@+node:gcross.20110627234551.1163: *3* Hire
 function Hire(name,actor,actor_name_after) {
