@@ -200,7 +200,7 @@ Animator.prototype = {
 function Director(script) {
     //@+<< Initialization >>
     //@+node:gcross.20110627234551.1150: *3* << Initialization >>
-    this.tags = {}
+    this.tags = {"0":0}
     this.script_slides = []
     this.slides = [0]
     var slide = 0
@@ -211,6 +211,7 @@ function Director(script) {
             if(!tag_chunk_in_progress) {
                 ++slide
                 this.slides.push(index)
+                this.tags[String(slide)] = index
                 tag_chunk_in_progress = true
             }
         } else {
