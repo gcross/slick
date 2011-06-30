@@ -362,8 +362,7 @@ function augment(cls,methods) {
 function augmentWithPositionBehavior(actor_class) {
     var prototype = actor_class.prototype
     appendToMethod(prototype,"update",function () {
-        this.node.setAttributeNS(svg_namespace,"x",this.x)
-        this.node.setAttributeNS(svg_namespace,"y",this.y)
+        this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")")
     })
     augment(actor_class,{x: 0, y: 0})
 }
@@ -442,6 +441,28 @@ augment(AnimationsInSequence,{
         animation.stepTo(stage,animation.duration)
     }
 })
+//@+node:gcross.20110629133112.1182: *3* Set
+function Set(getObjectFromStage,property_name,new_value,old_value) {
+    this.getObjectFromStage = getObjectFromStage
+    this.property_name = property_name
+    this.new_value = new_value
+    this.old_value = old_value
+}
+Set.prototype = {
+    advance: function(stage) {
+        this.getObjectFromStage(stage)[this.property_name] = this.new_value
+    }
+
+,   retract: function(stage) {
+        this.getObjectFromStage(stage)[this.property_name] = this.old_value
+    }
+}
+
+function set(getObjectFromStage,property_name,new_value) {
+    return function(stage) {
+        return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
+    }
+}
 //@+node:gcross.20110627234551.1162: ** Cast changes
 //@+node:gcross.20110627234551.1163: *3* Hire
 function Hire(name,actor,actor_name_after) {
