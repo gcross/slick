@@ -538,22 +538,23 @@ function set(getObjectFromStage,property_name,new_value) {
         return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
     }
 }
-//@+node:gcross.20110629133112.1188: *3* Linear
-function LinearAnimation(duration,getObjectFromStage,property_name,new_value,old_value) {
+//@+node:gcross.20110629133112.1188: *3* Interpolating
+function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,new_value,old_value) {
+    this.ease = easing
     this.duration = duration
     this.getObjectFromStage = getObjectFromStage
     this.property_name = property_name
     this.base = old_value
     this.delta = (new_value - old_value) / duration
 }
-LinearAnimation.prototype = Object.create(AnimationPrototype)
-augment(LinearAnimation,{
+InterpolatingAnimation.prototype = Object.create(AnimationPrototype)
+augment(InterpolatingAnimation,{
     stepTo: function(stage,time) {
-        this.getObjectFromStage(stage)[this.property_name] = this.base + time * this.delta
+        this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time) * this.delta
     }
 })
 
-function linear(duration,getObjectFromStage,property_name,v1,v2) {
+function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
         var old_value, new_value
         if(v2 == undefined) {
@@ -564,13 +565,20 @@ function linear(duration,getObjectFromStage,property_name,v1,v2) {
             new_value = v2
         }
         return new
-            LinearAnimation(
+            InterpolatingAnimation(
+                easing,
                 duration,
                 getObjectFromStage,
                 property_name,
                 new_value,
                 old_value
             )
+    }
+}
+
+function makeInterpolater(easing) {
+    return function(duration,getObjectFromStage,property_name,v1,v2) {
+        return interpolate(easing,duration,getObjectFromStage,property_name,v1,v2)
     }
 }
 //@+node:gcross.20110627234551.1162: ** Cast changes
@@ -618,5 +626,8 @@ function fire(name) {
         return new Fire(name,stage.getActor(name),stage.getActorNameAfter(name))
     }
 }
+//@+node:gcross.20110629221709.1183: ** Interpolations
+var linear = makeInterpolater(function(t) { return t; })
+var smooth = makeInterpolater(function(t) { return t*t*(t + 3*(1-t)); })
 //@-others
 //@-leo
