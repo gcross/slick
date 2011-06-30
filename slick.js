@@ -190,6 +190,7 @@ Animator.prototype = {
         } else {
             this.director.stop()
             this.director.advance()
+            this.director.update()
             this.callback()
         }
     },
