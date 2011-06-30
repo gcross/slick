@@ -68,6 +68,10 @@ function initializeSlick(script) {
         director.playUntilTagReached()
     }
 
+    window.addEventListener("hashchange",function(event) {
+        if(window.location.hash) director.gotoSlide(window.location.hash.substring(1))
+    },false)
+
     document.documentElement.appendChild(director.stage.getNode())
 }
 //@+node:gcross.20110626200911.1122: ** class Stage
