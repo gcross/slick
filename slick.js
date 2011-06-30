@@ -366,6 +366,20 @@ function augmentWithPositionBehavior(actor_class) {
     })
     augment(actor_class,{x: 0, y: 0})
 }
+//@+node:gcross.20110629133112.1185: *3* chainAfterMethod
+function chainAfterMethod(prototype,name,new_method) {
+    var old_method = prototype[name]
+    if(old_method == undefined) {
+        prototype[name] = new_method
+    } else {
+        prototype[name] = function() {
+            var old_value = old_method.apply(this,arguments)
+            var new_arguments = [old_value]
+            for(var i = 0; i < arguments.length; ++i) new_arguments.push(arguments[i])
+            return new_method.apply(this,new_arguments)
+        }
+    }
+}
 //@+node:gcross.20110627234551.1146: ** Actors
 //@+node:gcross.20110626200911.1139: *3* [ Actor prototype ]
 var ActorPrototype = {
