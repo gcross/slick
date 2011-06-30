@@ -129,7 +129,7 @@ Stage.prototype = {
         }
         this[name] = actor
         this.ordering.splice(this.ordering.indexOf(before_name),0,name)
-        if(this.node) this.node.insertBefore(addActorNode(actor),nodes[before_name])
+        if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
     },
     //@+node:gcross.20110626200911.1129: *3* removeActor
     removeActor: function(name) {
@@ -436,7 +436,7 @@ augment(UseActor,{
 augmentWithPositionBehavior(UseActor)
 augmentWithStyleBehavior(UseActor)
 
-function hireUseActor(id) { return hire(id,new UseActor(id)); }
+function hireUseActor(id,actor_name_after) { return hire(id,new UseActor(id),actor_name_after); }
 //@+node:gcross.20110627234551.1147: ** Animations
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
 var AnimationPrototype = {
@@ -591,7 +591,7 @@ function makeInterpolater(easing) {
 function Hire(name,actor,actor_name_after) {
     this.name = name
     this.actor = actor
-    this.actor_name_after
+    this.actor_name_after = actor_name_after
 }
 Hire.prototype = {
     advance: function(stage) {
