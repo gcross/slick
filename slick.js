@@ -224,8 +224,10 @@ function Director(script) {
         }
         this.script_slides[index] = slide
     }
-    this.slides.push(script.length)
-    this.script_slides.push(this.slides.length-1)
+    ++slide
+    this.slides.push(index)
+    this.tags[String(slide)] = index
+    this.script_slides.push(slide)
 
     this.script = script
     this.stage = new Stage
