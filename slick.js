@@ -434,6 +434,8 @@ augment(UseActor,{
 })
 augmentWithPositionBehavior(UseActor)
 augmentWithStyleBehavior(UseActor)
+
+function hireUseActor(id) { return hire(id,new UseActor(id)); }
 //@+node:gcross.20110627234551.1147: ** Animations
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
 var AnimationPrototype = {
