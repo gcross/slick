@@ -559,8 +559,16 @@ augment(InterpolatingAnimation,{
     }
 })
 
+function convertStringToGetter(getObjectFromStage) {
+    if(typeof getObjectFromStage == "string")
+        return function(stage) { return stage[getObjectFromStage]; }
+    else
+        return getObjectFromStage
+}
+
 function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
+        getObjectFromStage = convertStringToGetter(getObjectFromStage)
         var old_value, new_value
         if(v2 == undefined) {
             old_value = getObjectFromStage(stage)[property_name]
@@ -588,6 +596,7 @@ function makeInterpolater(easing) {
 }
 //@+node:gcross.20110629233843.1185: *3* Fading
 function fadeOut(duration,getObjectFromStage,current_opacity) {
+    getObjectFromStage = convertStringToGetter(getObjectFromStage)
     return function(stage) {
         if(current_opacity == undefined)
             current_opacity = getObjectFromStage(stage).style.opacity
@@ -606,6 +615,7 @@ function fadeOut(duration,getObjectFromStage,current_opacity) {
 }
 
 function fadeIn(duration,getObjectFromStage,current_opacity) {
+    getObjectFromStage = convertStringToGetter(getObjectFromStage)
     return linear(
         duration,
         function(stage) { return getObjectFromStage(stage).style; },
