@@ -156,7 +156,7 @@ Animator.prototype = {
     //@-<< Initial field values >>
     //@+others
     //@+node:gcross.20110627234551.1198: *3* active
-    active: function() { return (handler_id in this); },
+    active: function() { return ("handler_id" in this); },
     //@+node:gcross.20110627234551.1195: *3* disable
     disable: function() {
         window.clearInterval(this.handler_id)
@@ -170,13 +170,15 @@ Animator.prototype = {
     },
     //@+node:gcross.20110627234551.1190: *3* start
     start: function() {
-        this.starting_time = new Date()
-        this.handler_id = window.setInterval(function() { this.step(); },this.interval*1000)
+        this.starting_time = new Date() - this.offset
+        delete this.offset
+        var self = this;
+        this.handler_id = window.setInterval(function() { self.step(); },this.interval*1000)
     },
     //@+node:gcross.20110627234551.1192: *3* step
     step: function() {
         var animation = this.animation
-        var current_time = (new Date() - this.starting_time + offset) / 1000
+        var current_time = (new Date() - this.starting_time) / 1000
         if(current_time < animation.duration) {
             var stage = this.director.stage
             animation.stepTo(stage,current_time)
@@ -321,6 +323,7 @@ Director.prototype = {
     //@+node:gcross.20110627234551.1177: *3* rewind
     rewind: function(n) {
         if(n == undefined) n = 1
+        if(this.animator) n -= 1
         this.gotoSlide(this.getCurrentSlide()-n)
     },
     //@+node:gcross.20110627234551.1186: *3* skipTagChunk
@@ -332,6 +335,7 @@ Director.prototype = {
         if(this.animator) {
             this.animator.stop()
             delete this.animator
+            this.script[this.marker].retract(this.stage)
         }
     },
     //@+node:gcross.20110627234551.1183: *3* update
@@ -426,52 +430,86 @@ augmentWithStyleBehavior(UseActor)
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
 var AnimationPrototype = {
     advance: function(stage) {
-        this.setTo(stage,duration)
+        this.stepTo(stage,this.duration)
     }
 
 ,   retract: function(stage) {
-        this.setTo(stage,0)
+        this.stepTo(stage,0)
     }
 }
-//@+node:gcross.20110626200911.1140: *3* AnimationsInParallel
-function AnimationsInParallel(animations) {
-    var duration = 0
-    for(animation in animations)
-        if(animation.duration > duration)
-            duration = animation.duration
-    this.duration = duration
+//@+node:gcross.20110626200911.1140: *3* Parallel
+function ParallelAnimation(animations) {
+    this.animations = animations
+    this.duration = Math.max.apply(Math,animations.map(function(x) { return x.duration; }))
 }
-AnimationsInParallel.prototype = Object.create(AnimationPrototype)
-augment(AnimationsInParallel,{
-    stepTo: function(stage,time) {
-        for(animation in animations) {
-            animation.stepTo(stage,Math.max(time,animation.duration))
-        }
+augment(ParallelAnimation,{
+    advance: function(stage) {
+        this.animations.forEach(function(x) { x.advance(stage); })
+    }
+,   retract: function(stage) {
+        this.animations.forEach(function(x) { x.retract(stage); })
+    }
+,   stepTo: function(stage,time) {
+        this.animations.forEach(function(x) { x.stepTo(stage,Math.min(time,x.duration)); })
     }
 })
-//@+node:gcross.20110626200911.1146: *3* AnimationsInSequence
-function AnimationsInSequence(animations) {
-    var duration = 0
-    for(animation in animations)
-        duration += animation.duration
-    this.duration = duration
+
+function parallel() {
+    var animation_arguments = arguments
+    return function(stage) {
+        var animations = []
+        for(var i = 0; i < animation_arguments.length; ++i)
+            animations.push(animation_arguments[i](stage))
+        return new ParallelAnimation(animations)
+    }
 }
-AnimationsInSequence.prototype = Object.create(AnimationPrototype)
-augment(AnimationsInSequence,{
-    stepTo: function(stage,time) {
-        for(animation in animations) {
-            var next_time = time - animation.duration
+//@+node:gcross.20110626200911.1146: *3* Sequence
+function SequenceAnimation(animations) {
+    this.animations = animations
+    this.duration = animations.reduce(function(total,animation) { return total + animation.duration; },0)
+}
+augment(SequenceAnimation,{
+    advance: function(stage) {
+        var animations = this.animations
+        for(var i = 0; i < animations.length; ++i)
+            animations[i].advance(stage)
+    }
+,   retract: function(stage) {
+        var animations = this.animations
+        for(var i = animations.length-1; i >= 0; --i)
+            animations[i].retract(stage)
+    }
+,   stepTo: function(stage,time) {
+        var animations = this.animations
+        for(var i = 0; i < animations.length; ++i) {
+            var animation = animations[i]
+            var next_time = time - animations[i].duration
             if(next_time < 0) {
-                animation.stepTo(stage,time)
+                animations[i].stepTo(stage,time)
                 return
             } else {
                 time = next_time
             }
         }
-        var animation = animations[animations-length]
         animation.stepTo(stage,animation.duration)
     }
 })
+
+function sequence() {
+    var animation_arguments = arguments
+    return function(stage) {
+        var animations = []
+        for(var i = 0; i < animation_arguments.length; ++i) {
+            var animation = animation_arguments[i](stage)
+            animation.advance(stage)
+            animations.push(animation)
+        }
+        for(var i = animation_arguments.length-1; i >= 0; --i) {
+            animation.retract(stage)
+        }
+        return new SequenceAnimation(animations)
+    }
+}
 //@+node:gcross.20110629133112.1182: *3* Set
 function Set(getObjectFromStage,property_name,new_value,old_value) {
     this.getObjectFromStage = getObjectFromStage
@@ -492,6 +530,41 @@ Set.prototype = {
 function set(getObjectFromStage,property_name,new_value) {
     return function(stage) {
         return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
+    }
+}
+//@+node:gcross.20110629133112.1188: *3* Linear
+function LinearAnimation(duration,getObjectFromStage,property_name,new_value,old_value) {
+    this.duration = duration
+    this.getObjectFromStage = getObjectFromStage
+    this.property_name = property_name
+    this.base = old_value
+    this.delta = (new_value - old_value) / duration
+}
+LinearAnimation.prototype = Object.create(AnimationPrototype)
+augment(LinearAnimation,{
+    stepTo: function(stage,time) {
+        this.getObjectFromStage(stage)[this.property_name] = this.base + time * this.delta
+    }
+})
+
+function linear(duration,getObjectFromStage,property_name,v1,v2) {
+    return function(stage) {
+        var old_value, new_value
+        if(v2 == undefined) {
+            old_value = getObjectFromStage(stage)[property_name]
+            new_value = v1
+        } else {
+            old_value = v1
+            new_value = v2
+        }
+        return new
+            LinearAnimation(
+                duration,
+                getObjectFromStage,
+                property_name,
+                new_value,
+                old_value
+            )
     }
 }
 //@+node:gcross.20110627234551.1162: ** Cast changes
