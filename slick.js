@@ -371,14 +371,6 @@ function augment(cls,methods) {
     for(var name in methods)
         cls.prototype[name] = methods[name]
 }
-//@+node:gcross.20110627234551.1155: *3* augmentWithPositionBehavior
-function augmentWithPositionBehavior(actor_class) {
-    var prototype = actor_class.prototype
-    appendToMethod(prototype,"update",function () {
-        this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")")
-    })
-    augment(actor_class,{x: 0, y: 0})
-}
 //@+node:gcross.20110629231851.1184: *3* augmentWithStyleBehavior
 function augmentWithStyleBehavior(actor_class) {
     var prototype = actor_class.prototype
@@ -391,6 +383,14 @@ function augmentWithStyleBehavior(actor_class) {
             this.node.removeAttribute("style")
         }
     })
+}
+//@+node:gcross.20110627234551.1155: *3* augmentWithTransformBehavior
+function augmentWithTransformBehavior(actor_class) {
+    var prototype = actor_class.prototype
+    appendToMethod(prototype,"update",function () {
+        this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")scale(" + this.scale + ")")
+    })
+    augment(actor_class,{x: 0, y: 0, scale: 1})
 }
 //@+node:gcross.20110629133112.1185: *3* chainAfterMethod
 function chainAfterMethod(prototype,name,new_method) {
@@ -433,8 +433,8 @@ augment(UseActor,{
         return node
     }
 })
-augmentWithPositionBehavior(UseActor)
 augmentWithStyleBehavior(UseActor)
+augmentWithTransformBehavior(UseActor)
 
 function hireUseActor(id,actor_name_after) { return hire(id,new UseActor(id),actor_name_after); }
 //@+node:gcross.20110627234551.1147: ** Animations
