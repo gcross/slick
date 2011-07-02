@@ -456,6 +456,19 @@ var AnimationPrototype = {
         this.stepTo(stage,0)
     }
 }
+//@+node:gcross.20110702143209.1189: *3* Null
+function NullAnimation(duration) {
+    this.duration = duration
+}
+augment(NullAnimation,{
+    advance: function(stage) {}
+,   retract: function(stage) {}
+,   stepTo: function(stage,time) {}
+})
+
+function wait(duration) {
+    return function(stage) { return new NullAnimation(duration) }
+}
 //@+node:gcross.20110626200911.1140: *3* Parallel
 function ParallelAnimation(animations) {
     this.animations = animations
