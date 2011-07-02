@@ -622,6 +622,7 @@ function fadeIn(duration,getObjectFromStage,current_opacity) {
         duration,
         function(stage) { return getObjectFromStage(stage).style; },
         "opacity",
+        0,
         1
     )
 }
