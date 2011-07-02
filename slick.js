@@ -550,12 +550,12 @@ function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name
     this.getObjectFromStage = getObjectFromStage
     this.property_name = property_name
     this.base = old_value
-    this.delta = (new_value - old_value) / duration
+    this.delta = new_value - old_value
 }
 InterpolatingAnimation.prototype = Object.create(AnimationPrototype)
 augment(InterpolatingAnimation,{
     stepTo: function(stage,time) {
-        this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time) * this.delta
+        this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time/this.duration) * this.delta
     }
 })
 
