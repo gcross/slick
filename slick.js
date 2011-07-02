@@ -671,7 +671,7 @@ function fire(name) {
 //@+node:gcross.20110629221709.1183: ** Interpolations
 var linear = makeInterpolater(function(t) { return t; })
 var smooth = makeInterpolater(function(t) { var x = Math.sin(Math.PI*t/2); return x*x; })
-var easeIn = makeInterpolater(function(t) { return Math.sin(Math.PI*t/2); })
-var easeOut = makeInterpolater(function(t) { return 1-Math.cos(Math.PI*t/2); })
+var decelerate = makeInterpolater(function(t) { return Math.sin(Math.PI*t/2); })
+var accelerate = makeInterpolater(function(t) { return 1-Math.cos(Math.PI*t/2); })
 //@-others
 //@-leo
