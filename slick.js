@@ -75,6 +75,14 @@ function initializeSlick(script) {
 
     document.documentElement.appendChild(director.stage.getNode())
 }
+//@+node:gcross.20110702143209.1186: ** Functions
+//@+node:gcross.20110702143209.1187: *3* convertStringToGetter
+function convertStringToGetter(getObjectFromStage) {
+    if(typeof getObjectFromStage == "string")
+        return function(stage) { return stage[getObjectFromStage]; }
+    else
+        return getObjectFromStage
+}
 //@+node:gcross.20110626200911.1122: ** class Stage
 function Stage() {
     this.nodes = {}
@@ -558,13 +566,6 @@ augment(InterpolatingAnimation,{
         this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time/this.duration) * this.delta
     }
 })
-
-function convertStringToGetter(getObjectFromStage) {
-    if(typeof getObjectFromStage == "string")
-        return function(stage) { return stage[getObjectFromStage]; }
-    else
-        return getObjectFromStage
-}
 
 function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
