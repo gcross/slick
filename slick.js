@@ -548,6 +548,7 @@ Set.prototype = {
 
 function set(getObjectFromStage,property_name,new_value) {
     return function(stage) {
+        getObjectFromStage = convertStringToGetter(getObjectFromStage)
         return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
     }
 }
