@@ -679,9 +679,15 @@ Fire.prototype = {
     }
 }
 
-function fire(name) {
+function fire() {
+    var names = arguments
     return function(stage) {
-        return new Fire(name,stage.getActor(name),stage.getActorNameAfter(name))
+        var animations = []
+        for(var i = 0; i < names.length; ++i) {
+            var name = names[i]
+            animations.push(new Fire(name,stage.getActor(name),stage.getActorNameAfter(name)))
+        }
+        return new SequenceAnimation(animations)
     }
 }
 //@+node:gcross.20110629221709.1183: ** Interpolations
