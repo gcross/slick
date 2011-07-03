@@ -105,10 +105,14 @@ Stage.prototype = {
     //@+node:gcross.20110627234551.1169: *3* getActor
     getActor: function(name) { return this[name]; },
     //@+node:gcross.20110627234551.1165: *3* getActorNameAfter
-    getActorNameAfter: function(name) {
+    getActorNameAfter: function(name,excluding) {
         var index = this.ordering.indexOf(name)
-        if(index < this.ordering.length-1)
-            return this.ordering[index+1]
+        ++index
+        if(excluding) {
+            while(index < this.ordering.length && this.ordering[index] in excluding) ++index;
+        }
+        if(index < this.ordering.length)
+            return this.ordering[index]
         else
             return null
     },
@@ -297,6 +301,8 @@ Director.prototype = {
             this.update()
             callback()
         } else {
+            this.script[this.marker].stepTo(this.stage,0)
+            this.stage.update()
             this.animator =
                 new Animator(
                     this,
@@ -683,10 +689,12 @@ Fire.prototype = {
 function fire() {
     var names = arguments
     return function(stage) {
+        var excluding = {}
         var animations = []
         for(var i = 0; i < names.length; ++i) {
             var name = names[i]
-            animations.push(new Fire(name,stage.getActor(name),stage.getActorNameAfter(name)))
+            animations.push(new Fire(name,stage.getActor(name),stage.getActorNameAfter(name,excluding)))
+            excluding[name] = 1
         }
         return new SequenceAnimation(animations)
     }
