@@ -666,7 +666,7 @@ function hire(name,actor,actor_name_after) {
 function Fire(name,actor,actor_name_after) {
     this.name = name
     this.actor = actor
-    this.actor_name_after
+    this.actor_name_after = actor_name_after
 }
 Fire.prototype = {
     advance: function(stage) {
