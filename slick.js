@@ -473,6 +473,7 @@ function wait(duration) {
 function ParallelAnimation(animations) {
     this.animations = animations
     this.duration = Math.max.apply(Math,animations.map(function(x) { return x.duration; }))
+    if(isNaN(this.duration)) this.duration = 0
 }
 augment(ParallelAnimation,{
     advance: function(stage) {
