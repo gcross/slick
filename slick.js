@@ -396,7 +396,7 @@ function augmentWithStyleBehavior(actor_class) {
 function augmentWithTransformBehavior(actor_class) {
     var prototype = actor_class.prototype
     appendToMethod(prototype,"update",function () {
-        this.node.setAttribute("transform","scale(" + this.scale + ") translate(" + this.x + "," + this.y + ")")
+        this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")scale(" + this.scale + ")")
     })
     augment(actor_class,{x: 0, y: 0, scale: 1})
 }
