@@ -147,6 +147,7 @@ Stage.prototype = {
     },
     //@+node:gcross.20110626200911.1129: *3* removeActor
     removeActor: function(name) {
+        if(!(name in this)) throw new Error(name + " is not present on the stage to be fired!")
         var actor = this[name]
         delete this[name]
         if(this.node) this.node.removeChild(actor.node)
