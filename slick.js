@@ -456,6 +456,26 @@ augmentWithStyleBehavior(UseActor)
 augmentWithTransformBehavior(UseActor)
 
 function hireUseActor(id,actor_name_after) { return hire(id,new UseActor(id),actor_name_after); }
+
+function hireUseActors() {
+    var hires = []
+    for(var i = 0; i < arguments.length; ++i) {
+        var id = arguments[i]
+        hires.push(hire(id,new UseActor(id)))
+    }
+    return sequence.apply(null,hires)
+}
+
+function hireAndFadeInUseActor(duration,id,actor_name_after) { return hireAndFadeIn(duration,id,new UseActor(id),actor_name_after); }
+
+function hireAndFadeInUseActors(duration) {
+    var hires = []
+    for(var i = 1; i < arguments.length; ++i) {
+        var id = arguments[i]
+        hires.push(hireAndFadeIn(duration,id,new UseActor(id)))
+    }
+    return sequence.apply(null,hires)
+}
 //@+node:gcross.20110627234551.1147: ** Animations
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
 var AnimationPrototype = {
@@ -693,6 +713,13 @@ function hire(name,actor,actor_name_after) {
         return new Hire(name,actor,actor_name_after)
     }
 }
+
+function hireAndFadeIn(duration,name,actor,actor_name_after) {
+    return sequence(
+        hire(name,actor,actor_name_after),
+        fadeIn(duration,name)
+    )
+}
 //@+node:gcross.20110627234551.1167: *3* Fire
 function Fire(name,actor,actor_name_after) {
     this.name = name
@@ -722,6 +749,15 @@ function fire() {
         }
         return new SequenceAnimation(animations)
     }
+}
+
+function fadeOutAndFire(duration) {
+    var names = []
+    for(var i = 1; i < arguments.length; ++i) names.push(arguments[i])
+    return sequence(
+        parallel.apply(null,names.map(function(name) { return fadeOut(duration,name); })),
+        fire.apply(null,names)
+    )
 }
 //@+node:gcross.20110629221709.1183: ** Interpolations
 var linear = makeInterpolater(function(t) { return t; })
