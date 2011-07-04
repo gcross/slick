@@ -304,12 +304,13 @@ Director.prototype = {
             this.update()
             callback()
         } else {
-            this.script[this.marker].stepTo(this.stage,0)
+            var animation = this.script[this.marker]
+            animation.stepTo(this.stage,0)
             this.stage.update()
             this.animator =
                 new Animator(
                     this,
-                    this.script[this.marker],
+                    animation,
                     function() {
                         ++self.marker
                         callback()
