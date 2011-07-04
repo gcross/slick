@@ -98,6 +98,7 @@ Stage.prototype = {
     },
     //@+node:gcross.20110626200911.1124: *3* appendActor
     appendActor: function(name,actor) {
+        if(name in this) throw new Error(name + " has already been placed on the stage!")
         this[name] = actor
         this.ordering.push(name)
         if(this.node) this.node.appendChild(this.addActorNode(name,actor))
@@ -135,6 +136,7 @@ Stage.prototype = {
     },
     //@+node:gcross.20110626200911.1125: *3* insertActorBefore
     insertActorBefore: function(name,actor,before_name) {
+        if(name in this) throw new Error(name + " has already been placed on the stage!")
         if(before_name == undefined) {
             this.appendActor(name,actor)
             return
