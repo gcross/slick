@@ -507,32 +507,51 @@ function parallel() {
 //@+node:gcross.20110626200911.1146: *3* Sequence
 function SequenceAnimation(animations) {
     this.animations = animations
-    this.duration = animations.reduce(function(total,animation) { return total + animation.duration; },0)
+    this.duration = animations.reduce(function(total,animation) {
+        if(animation.duration)
+            return total + animation.duration;
+        else
+            return total
+    },0)
 }
 augment(SequenceAnimation,{
     advance: function(stage) {
         var animations = this.animations
-        for(var i = 0; i < animations.length; ++i)
+        for(var i = this.finished || 0; i < animations.length; ++i)
             animations[i].advance(stage)
+        delete this.finished
     }
 ,   retract: function(stage) {
         var animations = this.animations
-        for(var i = animations.length-1; i >= 0; --i)
+        for(var i = this.finished || (animations.length-1); i >= 0; --i)
             animations[i].retract(stage)
+        delete this.finished
     }
 ,   stepTo: function(stage,time) {
+        if(!this.finished) this.finished = 0
         var animations = this.animations
+        var self = this
         for(var i = 0; i < animations.length; ++i) {
             var animation = animations[i]
-            var next_time = time - animations[i].duration
-            if(next_time < 0) {
-                animations[i].stepTo(stage,time)
-                return
+            var finishThisAnimation = function() {
+                if(self.finished <= i) {
+                    animation.advance(stage)
+                    ++self.finished
+                }
+            }
+            if(!animation.duration) {
+                finishThisAnimation()
             } else {
+                var next_time = time - animation.duration
+                if(next_time < 0) {
+                    animation.stepTo(stage,time)
+                    return
+                } else {
+                    finishThisAnimation()
+                }
                 time = next_time
             }
         }
-        animation.stepTo(stage,animation.duration)
     }
 })
 
@@ -546,7 +565,7 @@ function sequence() {
             animations.push(animation)
         }
         for(var i = animation_arguments.length-1; i >= 0; --i) {
-            animation.retract(stage)
+            animations[i].retract(stage)
         }
         return new SequenceAnimation(animations)
     }
