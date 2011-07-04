@@ -203,7 +203,8 @@ Animator.prototype = {
             animation.stepTo(stage,current_time)
             stage.update()
         } else {
-            this.director.stop()
+            this.stop()
+            delete this.director.animator
             this.director.advance()
             this.director.update()
             this.callback()
