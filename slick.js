@@ -269,6 +269,13 @@ Director.prototype = {
     //@+node:gcross.20110627234551.1179: *3* fastforward
     fastforward: function(n) {
         if(n == undefined) n = 1
+        if(this.animator) {
+            this.animator.stop()
+            delete this.animator
+            this.script[this.marker].advance(this.stage)
+            ++this.marker
+            n -= this.script_slides[this.marker] - this.script_slides[this.marker-1]
+        }
         this.gotoSlide(this.getCurrentSlide()+n)
     },
     //@+node:gcross.20110629133112.1179: *3* getCurrentSlide
@@ -284,7 +291,6 @@ Director.prototype = {
     },
     //@+node:gcross.20110627234551.1176: *3* gotoSlide
     gotoSlide: function(destination) {
-        this.stop()
         switch(typeof destination) {
             case 'number':
                 destination = Math.max(1,Math.min(this.slides.length-1,destination))
@@ -351,20 +357,17 @@ Director.prototype = {
     //@+node:gcross.20110627234551.1177: *3* rewind
     rewind: function(n) {
         if(n == undefined) n = 1
-        if(this.animator) n -= 1
+        if(this.animator) {
+            this.animator.stop()
+            delete this.animator
+            this.script[this.marker].retract(this.stage)
+            n -= 1
+        }
         this.gotoSlide(this.getCurrentSlide()-n)
     },
     //@+node:gcross.20110627234551.1186: *3* skipTagChunk
     skipTagChunk: function() {
         while(this.atTag()) this.advance()
-    },
-    //@+node:gcross.20110627234551.1184: *3* stop
-    stop: function() {
-        if(this.animator) {
-            this.animator.stop()
-            delete this.animator
-            this.script[this.marker].retract(this.stage)
-        }
     },
     //@+node:gcross.20110627234551.1183: *3* update
     update: function() { this.stage.update(); },
@@ -503,18 +506,34 @@ function wait(duration) {
 //@+node:gcross.20110626200911.1140: *3* Parallel
 function ParallelAnimation(animations) {
     this.animations = animations
-    this.duration = Math.max.apply(Math,animations.map(function(x) { return x.duration; }))
-    if(isNaN(this.duration)) this.duration = 0
+    animations.forEach(function(animation) {
+        animation.duration = animation.duration || 0
+    })
+    animations.sort(function(a,b) { return a.duration - b.duration; })
+    this.duration = animations[animations.length-1].duration
 }
 augment(ParallelAnimation,{
-    advance: function(stage) {
-        this.animations.forEach(function(x) { x.advance(stage); })
+    finished: 0
+,   advance: function(stage) {
+        for(var i = this.finished; i < this.animations.length; ++i)
+            this.animations[i].advance(stage)
+        delete this.finished
     }
 ,   retract: function(stage) {
-        this.animations.forEach(function(x) { x.retract(stage); })
+        for(var i = this.animations.length-1; i >= 0; --i)
+            this.animations[i].retract(stage)
+        delete this.finished
     }
 ,   stepTo: function(stage,time) {
-        this.animations.forEach(function(x) { x.stepTo(stage,Math.min(time,x.duration)); })
+        for(var i = this.finished; i < this.animations.length; ++i) {
+            var animation = this.animations[i]
+            if(time >= animation.duration) {
+                animation.advance(stage)
+                ++this.finished
+            } else {
+                animation.stepTo(stage,time)
+            }
+        }
     }
 })
 
@@ -530,51 +549,37 @@ function parallel() {
 //@+node:gcross.20110626200911.1146: *3* Sequence
 function SequenceAnimation(animations) {
     this.animations = animations
-    this.duration = animations.reduce(function(total,animation) {
-        if(animation.duration)
-            return total + animation.duration;
-        else
-            return total
-    },0)
+    this.duration = 0
+    animations.forEach(function(animation) {
+        animation.duration = animation.duration || 0
+        this.duration += animation.duration
+    },this)
 }
 augment(SequenceAnimation,{
-    advance: function(stage) {
-        var animations = this.animations
-        for(var i = this.finished || 0; i < animations.length; ++i)
-            animations[i].advance(stage)
-        delete this.finished
+    finished: 0
+,   advance: function(stage) {
+        for(var i = this.finished; i < this.animations.length; ++i)
+            this.animations[i].advance(stage)
+        this.finished = this.animations.length
     }
 ,   retract: function(stage) {
-        var animations = this.animations
-        for(var i = this.finished || (animations.length-1); i >= 0; --i)
-            animations[i].retract(stage)
-        delete this.finished
+        for(var i = Math.min(this.finished,this.animations.length-1); i >= 0; --i)
+            this.animations[i].retract(stage)
+        this.finished = 0
     }
 ,   stepTo: function(stage,time) {
-        if(!this.finished) this.finished = 0
-        var animations = this.animations
-        var self = this
-        for(var i = 0; i < animations.length; ++i) {
-            var animation = animations[i]
-            var finishThisAnimation = function() {
-                if(self.finished <= i) {
-                    animation.advance(stage)
-                    ++self.finished
-                }
-            }
-            if(!animation.duration) {
-                finishThisAnimation()
-            } else {
-                var next_time = time - animation.duration
-                if(next_time < 0) {
-                    animation.stepTo(stage,time)
-                    return
-                } else {
-                    finishThisAnimation()
-                }
-                time = next_time
-            }
+        for(var i = 0;
+            i < this.finished;
+            time -= this.animations[i].duration, ++i
+        ) ;
+        for(;
+            i < this.animations.length && time >= this.animations[i].duration;
+            time -= this.animations[i].duration, ++i
+        ) {
+            this.animations[i].advance(stage)
+            ++this.finished
         }
+        if(i < this.animations.length) this.animations[i].stepTo(stage,time)
     }
 })
 
