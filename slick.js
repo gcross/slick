@@ -98,10 +98,18 @@ Stage.prototype = {
     },
     //@+node:gcross.20110626200911.1124: *3* appendActor
     appendActor: function(name,actor) {
-        if(name in this) throw new Error(name + " has already been placed on the stage!")
+        this.assertActorNotPresent(name)
         this[name] = actor
         this.ordering.push(name)
         if(this.node) this.node.appendChild(this.addActorNode(name,actor))
+    },
+    //@+node:gcross.20110702143209.1197: *3* assertActorNotPresent
+    assertActorNotPresent: function(name) {
+        if(name in this) throw new Error(name + " has already been placed on the stage!")
+    },
+    //@+node:gcross.20110702143209.1195: *3* assertActorPresent
+    assertActorPresent: function(name) {
+        if(!(name in this)) throw new Error(name + " is not present on the stage!")
     },
     //@+node:gcross.20110627234551.1169: *3* getActor
     getActor: function(name) { return this[name]; },
@@ -122,6 +130,41 @@ Stage.prototype = {
         this.prepareNode()
         return this.node
     },
+    //@+node:gcross.20110626200911.1125: *3* insertActorBefore
+    insertActorBefore: function(name,actor,before_name) {
+        this.assertActorNotPresent(name)
+        if(before_name == undefined) {
+            this.appendActor(name,actor)
+            return
+        }
+        this[name] = actor
+        this.ordering.splice(this.ordering.indexOf(before_name),0,name)
+        if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
+    },
+    //@+node:gcross.20110702143209.1193: *3* moveActorBefore
+    moveActorBefore: function(name,name_before) {
+        if(!name_before) return this.moveActorToEnd(name)
+        this.assertActorPresent(name)
+        this.assertActorPresent(name_before)
+        this.ordering.splice(this.ordering.indexOf(name),1)
+        this.ordering.splice(this.ordering.indexOf(name_before),0,name)
+        if(this.node) {
+            var node = this[name].node
+            this.node.removeChild(node)
+            this.node.insertBefore(node,this[name_before].node)
+        }
+    },
+    //@+node:gcross.20110702143209.1191: *3* moveActorToEnd
+    moveActorToEnd: function(name) {
+        this.assertActorPresent(name)
+        this.ordering.splice(this.ordering.indexOf(name),1)
+        this.ordering.push(name)
+        if(this.node) {
+            var node = this[name].node
+            this.node.removeChild(node)
+            this.node.appendChild(node)
+        }
+    },
     //@+node:gcross.20110629133112.1177: *3* prepareNode
     prepareNode: function() {
         if(this.node == undefined) {
@@ -133,17 +176,6 @@ Stage.prototype = {
                 self.node.appendChild(node)
             })
         }
-    },
-    //@+node:gcross.20110626200911.1125: *3* insertActorBefore
-    insertActorBefore: function(name,actor,before_name) {
-        if(name in this) throw new Error(name + " has already been placed on the stage!")
-        if(before_name == undefined) {
-            this.appendActor(name,actor)
-            return
-        }
-        this[name] = actor
-        this.ordering.splice(this.ordering.indexOf(before_name),0,name)
-        if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
     },
     //@+node:gcross.20110626200911.1129: *3* removeActor
     removeActor: function(name) {
@@ -763,6 +795,47 @@ function fadeOutAndFire(duration) {
         parallel.apply(null,names.map(function(name) { return fadeOut(duration,name); })),
         fire.apply(null,names)
     )
+}
+//@+node:gcross.20110702143209.1200: *3* MoveBefore
+function MoveBefore(name,old_name_after,new_name_after) {
+    this.name = name
+    this.old_name_after = old_name_after
+    this.new_name_after = new_name_after
+}
+MoveBefore.prototype = {
+    advance: function(stage) {
+        stage.moveActorBefore(this.name,this.new_name_after)
+    }
+
+,   retract: function(stage) {
+        stage.moveActorBefore(this.name,this.old_name_after)
+    }
+}
+
+function moveBefore(name,name_after) {
+    return function(stage) {
+        return new MoveBefore(name,stage.getActorNameAfter(name),name_after)
+    }
+}
+//@+node:gcross.20110702143209.1198: *3* MoveToEnd
+function MoveToEnd(name,name_after) {
+    this.name = name
+    this.name_after = name_after
+}
+MoveToEnd.prototype = {
+    advance: function(stage) {
+        stage.moveActorToEnd(this.name)
+    }
+
+,   retract: function(stage) {
+        stage.moveActorBefore(this.name,this.name_after)
+    }
+}
+
+function moveToEnd(name) {
+    return function(stage) {
+        return new MoveToEnd(name,stage.getActorNameAfter(name))
+    }
 }
 //@+node:gcross.20110629221709.1183: ** Interpolations
 var linear = makeInterpolater(function(t) { return t; })
