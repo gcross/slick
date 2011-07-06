@@ -508,7 +508,7 @@ function hireAndFadeInUseActors(duration) {
         var id = arguments[i]
         hires.push(hireAndFadeIn(duration,id,new UseActor(id)))
     }
-    return sequence.apply(null,hires)
+    return parallel.apply(null,hires)
 }
 //@+node:gcross.20110627234551.1147: ** Animations
 //@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
