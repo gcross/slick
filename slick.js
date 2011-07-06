@@ -189,8 +189,7 @@ Stage.prototype = {
     //@+node:gcross.20110626200911.1133: *3* update
     update: function() {
         this.prepareNode()
-        var self = this
-        this.ordering.forEach(function(name) { self[name].update(); })
+        this.ordering.forEach(function(name) { this[name].update(); },this)
     }
     //@-others
 }
