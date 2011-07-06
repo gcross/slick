@@ -422,12 +422,11 @@ function appendToMethod(prototype,name,new_method) {
 //@+node:gcross.20110629121436.1179: *3* augment
 function augment(cls,methods) {
     for(var name in methods)
-        cls.prototype[name] = methods[name]
+        cls[name] = methods[name]
 }
 //@+node:gcross.20110629231851.1184: *3* augmentWithStyleBehavior
 function augmentWithStyleBehavior(actor_class) {
-    var prototype = actor_class.prototype
-    appendToMethod(prototype,"update",function () {
+    appendToMethod(actor_class,"update",function () {
         var style = ""
         for(var key in this.style) style += (key + ":" + this.style[key] + ";")
         if(this.style) {
@@ -439,8 +438,7 @@ function augmentWithStyleBehavior(actor_class) {
 }
 //@+node:gcross.20110627234551.1155: *3* augmentWithTransformBehavior
 function augmentWithTransformBehavior(actor_class) {
-    var prototype = actor_class.prototype
-    appendToMethod(prototype,"update",function () {
+    appendToMethod(actor_class,"update",function () {
         this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")scale(" + this.scale + ")")
     })
     augment(actor_class,{x: 0, y: 0, scale: 1})
@@ -479,15 +477,15 @@ function UseActor(id) {
     this.style = {}
 }
 UseActor.prototype = Object.create(ActorPrototype)
-augment(UseActor,{
+augment(UseActor.prototype,{
     createNode: function() {
         var node = document.createElementNS(svg_namespace,"use")
         node.setAttributeNS(xlink_namespace,"href","#"+this.id)
         return node
     }
 })
-augmentWithStyleBehavior(UseActor)
-augmentWithTransformBehavior(UseActor)
+augmentWithStyleBehavior(UseActor.prototype)
+augmentWithTransformBehavior(UseActor.prototype)
 
 function hireUseActor(id,actor_name_after) { return hire(id,new UseActor(id),actor_name_after); }
 
@@ -525,7 +523,7 @@ var AnimationPrototype = {
 function NullAnimation(duration) {
     this.duration = duration
 }
-augment(NullAnimation,{
+augment(NullAnimation.prototype,{
     advance: function(stage) {}
 ,   retract: function(stage) {}
 ,   stepTo: function(stage,time) {}
@@ -543,7 +541,7 @@ function ParallelAnimation(animations) {
     animations.sort(function(a,b) { return a.duration - b.duration; })
     this.duration = animations[animations.length-1].duration
 }
-augment(ParallelAnimation,{
+augment(ParallelAnimation.prototype,{
     finished: 0
 ,   advance: function(stage) {
         for(var i = this.finished; i < this.animations.length; ++i)
@@ -586,7 +584,7 @@ function SequenceAnimation(animations) {
         this.duration += animation.duration
     },this)
 }
-augment(SequenceAnimation,{
+augment(SequenceAnimation.prototype,{
     finished: 0
 ,   advance: function(stage) {
         for(var i = this.finished; i < this.animations.length; ++i)
@@ -662,7 +660,7 @@ function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name
     this.delta = new_value - old_value
 }
 InterpolatingAnimation.prototype = Object.create(AnimationPrototype)
-augment(InterpolatingAnimation,{
+augment(InterpolatingAnimation.prototype,{
     stepTo: function(stage,time) {
         this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time/this.duration) * this.delta
     }
