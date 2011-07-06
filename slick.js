@@ -796,13 +796,13 @@ function fadeOutAndFire(duration) {
         fire.apply(null,names)
     )
 }
-//@+node:gcross.20110702143209.1200: *3* MoveBefore
-function MoveBefore(name,old_name_after,new_name_after) {
+//@+node:gcross.20110702143209.1200: *3* MoveInStack
+function MoveInStack(name,old_name_after,new_name_after) {
     this.name = name
     this.old_name_after = old_name_after
     this.new_name_after = new_name_after
 }
-MoveBefore.prototype = {
+MoveInStack.prototype = {
     advance: function(stage) {
         stage.moveActorBefore(this.name,this.new_name_after)
     }
@@ -814,27 +814,13 @@ MoveBefore.prototype = {
 
 function moveBefore(name,name_after) {
     return function(stage) {
-        return new MoveBefore(name,stage.getActorNameAfter(name),name_after)
-    }
-}
-//@+node:gcross.20110702143209.1198: *3* MoveToEnd
-function MoveToEnd(name,name_after) {
-    this.name = name
-    this.name_after = name_after
-}
-MoveToEnd.prototype = {
-    advance: function(stage) {
-        stage.moveActorToEnd(this.name)
-    }
-
-,   retract: function(stage) {
-        stage.moveActorBefore(this.name,this.name_after)
+        return new MoveInStack(name,stage.getActorNameAfter(name),name_after)
     }
 }
 
 function moveToEnd(name) {
     return function(stage) {
-        return new MoveToEnd(name,stage.getActorNameAfter(name))
+        return new MoveInStack(name,stage.getActorNameAfter(name))
     }
 }
 //@+node:gcross.20110629221709.1183: ** Interpolations
