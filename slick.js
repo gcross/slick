@@ -87,6 +87,18 @@ function convertStringToGetter(getObjectFromStage) {
 function Stage() {
     this.nodes = {}
     this.ordering = []
+    this.styles = {}
+    var style_node = document.createElementNS(svg_namespace,"style")
+    style_node.setAttribute("title","slick_stylesheet")
+    document.documentElement.appendChild(style_node)
+    this.stylesheet = (function() {
+        for(var i = 0; i < document.styleSheets.length; ++i) {
+            if(document.styleSheets[i].title == "slick_stylesheet") {
+                return document.styleSheets[i]
+            }
+        }
+        throw Error('Unable to find newly created style sheet "slick_stylesheet"')
+    })()
 }
 Stage.prototype = {
     //@+others
@@ -140,6 +152,15 @@ Stage.prototype = {
         this[name] = actor
         this.ordering.splice(this.ordering.indexOf(before_name),0,name)
         if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
+    },
+    //@+node:gcross.20110711171503.1274: *3* lookupStyleFor
+    lookupStyleFor: function(selector) {
+        var style = this.styles[selector]
+        if(style == undefined) {
+            style = this.stylesheet.cssRules[this.stylesheet.insertRule(selector + " {}")].style
+            this.styles[selector] = style
+        }
+        return style
     },
     //@+node:gcross.20110702143209.1193: *3* moveActorBefore
     moveActorBefore: function(name,name_before) {
