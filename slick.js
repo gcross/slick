@@ -652,6 +652,8 @@ function set(getObjectFromStage,property_name,new_value) {
 }
 //@+node:gcross.20110629133112.1188: *3* Interpolating
 function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,new_value,old_value) {
+    old_value = Number(old_value)
+    new_value = Number(new_value)
     this.ease = easing
     this.duration = duration
     this.getObjectFromStage = getObjectFromStage
