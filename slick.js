@@ -650,6 +650,28 @@ function set(getObjectFromStage,property_name,new_value) {
         return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
     }
 }
+//@+node:gcross.20110711171503.1272: *3* Remove
+function Remove(getObjectFromStage,property_name,old_value) {
+    this.getObjectFromStage = getObjectFromStage
+    this.property_name = property_name
+    this.old_value = old_value
+}
+Remove.prototype = {
+    advance: function(stage) {
+        delete this.getObjectFromStage(stage)[this.property_name]
+    }
+
+,   retract: function(stage) {
+        this.getObjectFromStage(stage)[this.property_name] = this.old_value
+    }
+}
+
+function remove(getObjectFromStage,property_name) {
+    return function(stage) {
+        getObjectFromStage = convertStringToGetter(getObjectFromStage)
+        return new Remove(getObjectFromStage,property_name,getObjectFromStage(stage)[property_name])
+    }
+}
 //@+node:gcross.20110629133112.1188: *3* Interpolating
 function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,new_value,old_value) {
     old_value = Number(old_value)
