@@ -83,6 +83,18 @@ function convertStringToGetter(getObjectFromStage) {
     else
         return getObjectFromStage
 }
+//@+node:gcross.20110712230720.1197: *3* styleFor
+function styleFor(selector) {
+    return function(stage) {
+        return stage.lookupStyleFor(selector)
+    }
+}
+//@+node:gcross.20110712230720.1199: *3* styleOf
+function styleOf(actor_name) {
+    return function(stage) {
+        return stage[actor_name].style
+    }
+}
 //@+node:gcross.20110626200911.1122: ** class Stage
 function Stage() {
     this.nodes = {}
