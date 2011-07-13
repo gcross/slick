@@ -75,6 +75,8 @@ function initializeSlick(script) {
 
     document.documentElement.appendChild(director.stage.getNode())
 }
+//@+node:gcross.20110712230720.1200: ** Values
+var default_value = undefined
 //@+node:gcross.20110702143209.1186: ** Functions
 //@+node:gcross.20110702143209.1187: *3* convertStringToGetter
 function convertStringToGetter(getObjectFromStage) {
@@ -796,12 +798,16 @@ Hire.prototype = {
 }
 
 function hire(name,actor,actor_name_after) {
+    if(!actor) actor = UseActor
+    if(typeof actor == "function") actor = new actor(name)
     return function(stage) {
         return new Hire(name,actor,actor_name_after)
     }
 }
 
 function hireAndFadeIn(duration,name,actor,actor_name_after) {
+    if(!actor) actor = UseActor
+    if(typeof actor == "function") actor = new actor(name)
     return sequence(
         hire(name,actor,actor_name_after),
         fadeIn(duration,name)
