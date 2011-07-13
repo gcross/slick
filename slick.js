@@ -530,16 +530,6 @@ function hireAndFadeInUseActors(duration) {
     return parallel.apply(null,hires)
 }
 //@+node:gcross.20110627234551.1147: ** Animations
-//@+node:gcross.20110627234551.1151: *3* [ Animation prototype ]
-var AnimationPrototype = {
-    advance: function(stage) {
-        this.stepTo(stage,this.duration)
-    }
-
-,   retract: function(stage) {
-        this.stepTo(stage,0)
-    }
-}
 //@+node:gcross.20110702143209.1189: *3* Null
 function NullAnimation(duration) {
     this.duration = duration
@@ -694,33 +684,41 @@ function remove(getObjectFromStage,property_name) {
     }
 }
 //@+node:gcross.20110629133112.1188: *3* Interpolating
-function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,new_value,old_value) {
-    old_value = Number(old_value)
-    new_value = Number(new_value)
+function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,old_value,starting_value,ending_value) {
+    starting_value = Number(starting_value)
+    ending_value = Number(ending_value)
     this.ease = easing
     this.duration = duration
     this.getObjectFromStage = getObjectFromStage
     this.property_name = property_name
-    this.base = old_value
-    this.delta = new_value - old_value
+    this.old_value = old_value
+    this.new_value = ending_value
+    this.base = starting_value
+    this.delta = ending_value - starting_value
 }
-InterpolatingAnimation.prototype = Object.create(AnimationPrototype)
-augment(InterpolatingAnimation.prototype,{
-    stepTo: function(stage,time) {
+InterpolatingAnimation.prototype = {
+    advance: function(stage) {
+        this.getObjectFromStage(stage)[this.property_name] = this.new_value
+    }
+,   retract: function(stage) {
+        this.getObjectFromStage(stage)[this.property_name] = this.old_value
+    }
+,   stepTo: function(stage,time) {
         this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time/this.duration) * this.delta
     }
-})
+}
 
 function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
         getObjectFromStage = convertStringToGetter(getObjectFromStage)
-        var old_value, new_value
+        var old_value = getObjectFromStage(stage)[property_name]
+        var starting_value, ending_value
         if(v2 == undefined) {
-            old_value = getObjectFromStage(stage)[property_name]
-            new_value = v1
+            starting_value = old_value
+            ending_value = v1
         } else {
-            old_value = v1
-            new_value = v2
+            starting_value = v1
+            ending_value = v2
         }
         return new
             InterpolatingAnimation(
@@ -728,8 +726,9 @@ function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
                 duration,
                 getObjectFromStage,
                 property_name,
-                new_value,
-                old_value
+                old_value,
+                starting_value,
+                ending_value
             )
     }
 }
@@ -740,21 +739,22 @@ function makeInterpolater(easing) {
     }
 }
 //@+node:gcross.20110629233843.1185: *3* Fading
-function fadeOut(duration,getObjectFromStage,current_opacity) {
+function fadeOut(duration,getObjectFromStage,starting_opacity) {
     getObjectFromStage = convertStringToGetter(getObjectFromStage)
     return function(stage) {
-        if(current_opacity == undefined)
-            current_opacity = getObjectFromStage(stage).style.opacity
-        if(current_opacity == undefined)
-            current_opacity = 1
-        return new
-            InterpolatingAnimation(
+        var old_opacity = getObjectFromStage(stage).style.opacity
+        if(starting_opacity == undefined)
+            starting_opacity = old_opacity
+        if(starting_opacity == undefined || starting_opacity == "")
+            starting_opacity = 1
+        return new InterpolatingAnimation(
                 function(t) { return t; },
                 duration,
                 function(stage) { return getObjectFromStage(stage).style; },
                 "opacity",
-                0,
-                current_opacity
+                old_opacity,
+                starting_opacity,
+                0
             )
     }
 }
