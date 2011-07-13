@@ -530,15 +530,24 @@ function hireAndFadeInUseActors(duration) {
     return parallel.apply(null,hires)
 }
 //@+node:gcross.20110627234551.1147: ** Animations
+//@+node:gcross.20110712230720.1196: *3* PropertyAnimationPrototype
+var PropertyAnimationPrototype = {
+    set: function(stage,new_value) {
+        this.getObjectFromStage(stage)[this.property_name] = new_value
+    }
+,   get: function(stage) {
+        return this.getObjectFromStage(stage)[this.property_name]
+    }
+}
 //@+node:gcross.20110702143209.1189: *3* Null
 function NullAnimation(duration) {
     this.duration = duration
 }
-augment(NullAnimation.prototype,{
+NullAnimation.prototype = {
     advance: function(stage) {}
 ,   retract: function(stage) {}
 ,   stepTo: function(stage,time) {}
-})
+}
 
 function wait(duration) {
     return function(stage) { return new NullAnimation(duration) }
@@ -552,7 +561,7 @@ function ParallelAnimation(animations) {
     animations.sort(function(a,b) { return a.duration - b.duration; })
     this.duration = animations[animations.length-1].duration
 }
-augment(ParallelAnimation.prototype,{
+ParallelAnimation.prototype = {
     finished: 0
 ,   advance: function(stage) {
         for(var i = this.finished; i < this.animations.length; ++i)
@@ -575,7 +584,7 @@ augment(ParallelAnimation.prototype,{
             }
         }
     }
-})
+}
 
 function parallel() {
     var animation_arguments = arguments
@@ -595,7 +604,7 @@ function SequenceAnimation(animations) {
         this.duration += animation.duration
     },this)
 }
-augment(SequenceAnimation.prototype,{
+SequenceAnimation.prototype = {
     finished: 0
 ,   advance: function(stage) {
         for(var i = this.finished; i < this.animations.length; ++i)
@@ -621,7 +630,7 @@ augment(SequenceAnimation.prototype,{
         }
         if(i < this.animations.length) this.animations[i].stepTo(stage,time)
     }
-})
+}
 
 function sequence() {
     var animation_arguments = arguments
@@ -645,15 +654,11 @@ function Set(getObjectFromStage,property_name,new_value,old_value) {
     this.new_value = new_value
     this.old_value = old_value
 }
-Set.prototype = {
-    advance: function(stage) {
-        this.getObjectFromStage(stage)[this.property_name] = this.new_value
-    }
-
-,   retract: function(stage) {
-        this.getObjectFromStage(stage)[this.property_name] = this.old_value
-    }
-}
+Set.prototype = Object.create(PropertyAnimationPrototype)
+augment(Set.prototype,{
+    advance: function(stage) { this.set(stage,this.new_value) }
+,   retract: function(stage) { this.set(stage,this.old_value) }
+})
 
 function set(getObjectFromStage,property_name,new_value) {
     return function(stage) {
@@ -667,15 +672,11 @@ function Remove(getObjectFromStage,property_name,old_value) {
     this.property_name = property_name
     this.old_value = old_value
 }
-Remove.prototype = {
-    advance: function(stage) {
-        delete this.getObjectFromStage(stage)[this.property_name]
-    }
-
-,   retract: function(stage) {
-        this.getObjectFromStage(stage)[this.property_name] = this.old_value
-    }
-}
+Remove.prototype = Object.create(PropertyAnimationPrototype)
+augment(Remove.prototype,{
+    advance: function(stage) { delete this.getObjectFromStage(stage)[this.property_name] }
+,   retract: function(stage) { this.set(stage,this.old_value) }
+})
 
 function remove(getObjectFromStage,property_name) {
     return function(stage) {
@@ -696,17 +697,12 @@ function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name
     this.base = starting_value
     this.delta = ending_value - starting_value
 }
-InterpolatingAnimation.prototype = {
-    advance: function(stage) {
-        this.getObjectFromStage(stage)[this.property_name] = this.new_value
-    }
-,   retract: function(stage) {
-        this.getObjectFromStage(stage)[this.property_name] = this.old_value
-    }
-,   stepTo: function(stage,time) {
-        this.getObjectFromStage(stage)[this.property_name] = this.base + this.ease(time/this.duration) * this.delta
-    }
-}
+InterpolatingAnimation.prototype = Object.create(PropertyAnimationPrototype)
+augment(InterpolatingAnimation.prototype,{
+    advance: function(stage) { this.set(stage,this.new_value) }
+,   retract: function(stage) { this.set(stage,this.old_value) }
+,   stepTo: function(stage,time) { this.set(stage,this.base + this.ease(time/this.duration) * this.delta) }
+})
 
 function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
