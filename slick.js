@@ -688,7 +688,13 @@ function Remove(getObjectFromStage,property_name,old_value) {
 }
 Remove.prototype = Object.create(PropertyAnimationPrototype)
 augment(Remove.prototype,{
-    advance: function(stage) { delete this.getObjectFromStage(stage)[this.property_name] }
+    advance: function(stage) {
+        var object = this.getObjectFromStage(stage)
+        if(CSSStyleDeclaration.prototype.isPrototypeOf(object))
+            object[this.property_name] = ""
+        else
+            delete object[this.property_name]
+    }
 ,   retract: function(stage) { this.set(stage,this.old_value) }
 })
 
