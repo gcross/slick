@@ -24,6 +24,7 @@ var END_KEY = 35; // end keycode
 var ENTER_KEY = 13; // next slide
 var SPACE_KEY = 32;
 var ESCAPE_KEY = 27;
+var F5_KEY = 116;
 
 var director
 //@-<< Global variables >>
@@ -38,6 +39,7 @@ function initializeSlick(script) {
         switch(event.keyCode || event.charCode) {
             case SPACE_KEY:
             case ENTER_KEY:
+            case F5_KEY:
                 if(director.animator) {
                     var animator = director.animator
                     if(animator.active())
@@ -49,9 +51,11 @@ function initializeSlick(script) {
                 }
                 break
             case LEFT_KEY:
+            case PAGE_UP_KEY:
                 director.rewind()
                 break
             case RIGHT_KEY:
+            case PAGE_DOWN_KEY:
                 director.fastforward()
                 break
             case UP_KEY:
