@@ -175,7 +175,7 @@ Stage.prototype = {
     lookupStyleFor: function(selector) {
         var style = this.styles[selector]
         if(style == undefined) {
-            style = this.stylesheet.cssRules[this.stylesheet.insertRule(selector + " {}")].style
+            style = this.stylesheet.cssRules[this.stylesheet.insertRule(selector + " {}",this.stylesheet.cssRules.length)].style
             this.styles[selector] = style
         }
         return style
