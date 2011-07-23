@@ -1,0 +1,46 @@
+The code for my CSGF talk is broken into two parts.  The first is a library that I call "Slick", which you can get from:
+
+    http://github.com/gcross/Slick
+
+The second is the source code for the talk itself, which you can get from:
+
+    http://github.com/gcross/CSGFTalk
+
+You will need to copy or symlink slick.js from the Slick directory into the CSGFTalk directory so that it can be found.
+
+I developed the talk using Chrome since it had the best implementation of the SVG and Javascript standards, and at the moment it seems to be the only browser that can view the whole talk correctly.  Firefox can also view the talk, but because it is missing some SVG filter support one of the graphics looks a little off and one effect is missing entirely.  Safari is in a similar boat as Firefox, but it has even worse support for SVG filters since it doesn't show blur effects, which the starting animations seem pointless.  Opera seems to do nothing at all, and I haven't even tried IE but due to its incomplete support of web standards I doubt much works at all.  :-)
+
+The keys are mapped as follows:
+
+    SPACE, ENTER, F5 = play slide;  pause/unpause the slide if an animation is in progress
+    LEFT = go back one slide
+    UP = go back ten slides
+    RIGHT = go forward one slide (skipping the animation)
+    DOWN = go forward ten slides
+
+Note:  jumping a whole bunch of slides by pressing UP or DOWN sometimes causes the page to crash in Chrome (presumably due to a bug in their DOM implementation) but if you just hit reload when this happens then it will pick up at the slide where it crashed and everything is just fine.  Firefox and Safari  by contrast work just fine for this.
+
+The talk source code is in two parts:  talk.svg and script.js.  The first contains all of the SVG graphics for the talk, most of which I drew in Inkscape and then copied and pasted into the file, giving each graphic a unique id so I could reference it later.  For some complicated graphics, I gave individual elements additional class or id tags that let me animate their properties (mainly just "opacity") using CSS.  The second part contains the actual script that drives the talk, the main part of which is a series of animations separated by pauses;  a pause is a string, which can either be blank or a "tag" that lets you jump to that point in the talk using #tagname in the URL.
+
+The paradigm is one of "actors" rather than slides;  an actor is "hired" from the stage to make it appear (possibly behind another actor), and then "fired" when it is no longer needed.  Actors have properties which can alter their appearance, which can be arbitrary but typically include "x" and "y";  a call to the "update" method tells the actor to examine its properties and to update its SVG elements appropriately.  Most actors in the talk are instances of UseActor, which consists of just a single <use/> node that references another SVG element plus a transform and a style attribute, which is sufficient for most simple animation effects.  (In fact, for convenience the "hire" functions will create one for you by default if you leave the actor object undefined.)
+
+Animations specify how things on the stage should be changed, which can include mutating actor properties over time or mutating the property of a stylesheet rule over time.  There are two basic animation combinators:  parallel which runs its argument animations in parallel, and sequence which runs its argument animations in sequence.  Since it is usually much easier to specify animations as changes relative to the current state --- i.e., move yourself from wherever you are now to position "(x,y)", rather than move yourself from "(x1,y1)" to "(x2,y2)" --- the animations are not fully constructed until they have been reached in the presentation so that they can see the current state of the stage.  Thus, the script contains not an array of animation objects but rather a list of maps from the stage to animation objects.  Once an animation is constructed from the stage it is cached so that each animation is only constructed once.
+
+I designed the system with the goal of making it easy to prototype slides quickly, so in particular you will notice that this if you reload the page it has the effect of almost instantly updating the slide that you had been at to reflect any changes you made.  I accomplished this by having the presentation look at the hash tag in the URL to see where the presentation should start, and deferring the creation of the actual SVG elements until we have completed the walk to that starting slide in order to make it be able to get there quickly.
+
+While you can look at the files directly using a text editor, I edit the code myself using a program called Leo at
+
+    http://webpages.charter.net/edreamleo/front.html
+
+If you open the .leo files using Leo then you can browse the sources as an outline.  (Leo is what is responsible for the various strange-looking comments that you see, as it uses those comments to reconstruct the outline from the flat source files.)
+
+Finally, if you have ever heard of Slithy (a now defunct GRAIL project) then it is worth noting that I consider my system, Slick, to be a spiritual successor to it that, because many of the ideas in that project were brilliant and hence much of the way that Slick does things was directly inspired by it.  I actually wrote a presentation using Slithy once but it was a pain:  the result was not very portable, it was very cumbersome to prototype slides (since you had to either break up the code by hand or constantly maneuver to the slide you were testing manually), and it wouldn't let me make create actors by drawing them in another editor;  hence Slick.  :-)  You can read more about Slithy at:
+
+    http://grail.cs.washington.edu/projects/slithy/
+    http://isotropic.org/tmp/slithy/
+    http://www.cs.umd.edu/~nspring/slithy.html
+
+Let me know if you have any other questions.  :-)
+
+Cheers,
+Greg
