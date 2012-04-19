@@ -1,14 +1,7 @@
-//@+leo-ver=5-thin
-//@+node:gcross.20110626200911.1121: * @file slick.js
-//@@language javascript
-
-//@+<< Prelude >>
-//@+node:gcross.20110626200911.1127: ** << Prelude >>
+// Prelude {{{
 "use strict"
-//@-<< Prelude >>
-
-//@+<< Global variables >>
-//@+node:gcross.20110627234551.1181: ** << Global variables >>
+// }}}
+// Global variables {{{
 var svg_namespace = "http://www.w3.org/2000/svg"
 var xlink_namespace = "http://www.w3.org/1999/xlink"
 
@@ -27,14 +20,11 @@ var ESCAPE_KEY = 27;
 var F5_KEY = 116;
 
 var director
-//@-<< Global variables >>
-
-//@+others
-//@+node:gcross.20110627234551.1201: ** Initialization
-//@+node:gcross.20110627234551.1180: *3* function initializeSlick
+// }}}
+// Initialization {{{
 function initializeSlick(script) {
     director = new Director(script)
-    
+
     window.addEventListener("keydown",function(event) {
         switch(event.keyCode || event.charCode) {
             case SPACE_KEY:
@@ -66,7 +56,7 @@ function initializeSlick(script) {
                 break
         }
     },false)
-    
+
     if(window.location.hash) {
         director.gotoSlide(window.location.hash.substring(1))
     } else {
@@ -79,30 +69,32 @@ function initializeSlick(script) {
 
     document.documentElement.appendChild(director.stage.getNode())
 }
-//@+node:gcross.20110712230720.1200: ** Values
+// }}} Initialization
+// Values {{{
 var default_value = undefined
-//@+node:gcross.20110702143209.1186: ** Functions
-//@+node:gcross.20110702143209.1187: *3* convertStringToGetter
-function convertStringToGetter(getObjectFromStage) {
+// }}} Values
+// Functions {{{
+function convertStringToGetter(getObjectFromStage) { // {{{
     if(typeof getObjectFromStage == "string")
         return function(stage) { return stage[getObjectFromStage]; }
     else
         return getObjectFromStage
-}
-//@+node:gcross.20110712230720.1197: *3* styleFor
-function styleFor(selector) {
+} // }}}
+function styleFor(selector) { // {{{
     return function(stage) {
         return stage.lookupStyleFor(selector)
     }
-}
-//@+node:gcross.20110712230720.1199: *3* styleOf
-function styleOf(actor_name) {
+} // }}}
+function styleOf(actor_name) { // {{{
     return function(stage) {
         return stage[actor_name].style
     }
-}
-//@+node:gcross.20110626200911.1122: ** class Stage
+} // }}}
+// }}} Functions
+// Classes {{{
+//   class Stage {{{
 function Stage() {
+  // Initialization {{{
     this.nodes = {}
     this.ordering = []
     this.styles = {}
@@ -117,34 +109,31 @@ function Stage() {
         }
         throw Error('Unable to find newly created style sheet "slick_stylesheet"')
     })()
+  // }}} Initialization
 }
 Stage.prototype = {
-    //@+others
-    //@+node:gcross.20110626200911.1134: *3* addActorNode
-    addActorNode: function(name,actor) {
+  // Methods {{{
+    addActorNode: function(name,actor) { // {{{
         var node = actor.getNode()
         this.nodes[name] = node
         return node
-    },
-    //@+node:gcross.20110626200911.1124: *3* appendActor
-    appendActor: function(name,actor) {
+    }, // }}}
+    appendActor: function(name,actor) { // {{{
         this.assertActorNotPresent(name)
         this[name] = actor
         this.ordering.push(name)
         if(this.node) this.node.appendChild(this.addActorNode(name,actor))
-    },
-    //@+node:gcross.20110702143209.1197: *3* assertActorNotPresent
-    assertActorNotPresent: function(name) {
+    }, // }}}
+    assertActorNotPresent: function(name) { // {{{
         if(name in this) throw new Error(name + " has already been placed on the stage!")
-    },
-    //@+node:gcross.20110702143209.1195: *3* assertActorPresent
-    assertActorPresent: function(name) {
+    }, // }}}
+    assertActorPresent: function(name) { // {{{
         if(!(name in this)) throw new Error(name + " is not present on the stage!")
-    },
-    //@+node:gcross.20110627234551.1169: *3* getActor
-    getActor: function(name) { return this[name]; },
-    //@+node:gcross.20110627234551.1165: *3* getActorNameAfter
-    getActorNameAfter: function(name,excluding) {
+    }, // }}}
+    getActor: function(name) { // {{{
+        return this[name];
+    }, // }}}
+    getActorNameAfter: function(name,excluding) { // {{{
         var index = this.ordering.indexOf(name)
         ++index
         if(excluding) {
@@ -154,14 +143,12 @@ Stage.prototype = {
             return this.ordering[index]
         else
             return null
-    },
-    //@+node:gcross.20110627234551.1159: *3* getNode
-    getNode: function() {
+    }, // }}}
+    getNode: function() { // {{{
         this.prepareNode()
         return this.node
-    },
-    //@+node:gcross.20110626200911.1125: *3* insertActorBefore
-    insertActorBefore: function(name,actor,before_name) {
+    }, // }}}
+    insertActorBefore: function(name,actor,before_name) { // {{{
         this.assertActorNotPresent(name)
         if(before_name == undefined) {
             this.appendActor(name,actor)
@@ -170,18 +157,16 @@ Stage.prototype = {
         this[name] = actor
         this.ordering.splice(this.ordering.indexOf(before_name),0,name)
         if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
-    },
-    //@+node:gcross.20110711171503.1274: *3* lookupStyleFor
-    lookupStyleFor: function(selector) {
+    }, // }}}
+    lookupStyleFor: function(selector) { // {{{
         var style = this.styles[selector]
         if(style == undefined) {
             style = this.stylesheet.cssRules[this.stylesheet.insertRule(selector + " {}",this.stylesheet.cssRules.length)].style
             this.styles[selector] = style
         }
         return style
-    },
-    //@+node:gcross.20110702143209.1193: *3* moveActorBefore
-    moveActorBefore: function(name,name_before) {
+    }, // }}}
+    moveActorBefore: function(name,name_before) { // {{{
         if(!name_before) return this.moveActorToEnd(name)
         this.assertActorPresent(name)
         this.assertActorPresent(name_before)
@@ -192,9 +177,8 @@ Stage.prototype = {
             this.node.removeChild(node)
             this.node.insertBefore(node,this[name_before].node)
         }
-    },
-    //@+node:gcross.20110702143209.1191: *3* moveActorToEnd
-    moveActorToEnd: function(name) {
+    }, // }}}
+    moveActorToEnd: function(name) { // {{{
         this.assertActorPresent(name)
         this.ordering.splice(this.ordering.indexOf(name),1)
         this.ordering.push(name)
@@ -203,9 +187,8 @@ Stage.prototype = {
             this.node.removeChild(node)
             this.node.appendChild(node)
         }
-    },
-    //@+node:gcross.20110629133112.1177: *3* prepareNode
-    prepareNode: function() {
+    }, // }}}
+    prepareNode: function() { // {{{
         if(this.node == undefined) {
             this.node = document.createElementNS(svg_namespace,"g")
             var self = this
@@ -215,58 +198,55 @@ Stage.prototype = {
                 self.node.appendChild(node)
             })
         }
-    },
-    //@+node:gcross.20110626200911.1129: *3* removeActor
-    removeActor: function(name) {
+    }, // }}}
+    removeActor: function(name) { // {{{
         if(!(name in this)) throw new Error(name + " is not present on the stage to be fired!")
         var actor = this[name]
         delete this[name]
         if(this.node) this.node.removeChild(actor.node)
         this.ordering.splice(this.ordering.indexOf(name),1)
         return actor
-    },
-    //@+node:gcross.20110626200911.1133: *3* update
-    update: function() {
+    }, // }}}
+    update: function() { // {{{
         this.prepareNode()
         this.ordering.forEach(function(name) { this[name].update(); },this)
-    }
-    //@-others
+    } // }}}
+  // }}} Methods
 }
-//@+node:gcross.20110627234551.1189: ** class Animator
+//   }}} class Stage
+//   class Animator {{{
 function Animator(director,animation,callback) {
+  // Initialization {{{
     this.director = director
     this.animation = animation
     this.callback = callback
+  // }}} Initialization
 }
 Animator.prototype = {
-    //@+<< Initial field values >>
-    //@+node:gcross.20110627234551.1191: *3* << Initial field values >>
+  // Initial field values {{{
     offset: 0,
     interval: 1/100,
-    //@-<< Initial field values >>
-    //@+others
-    //@+node:gcross.20110627234551.1198: *3* active
-    active: function() { return ("handler_id" in this); },
-    //@+node:gcross.20110627234551.1195: *3* disable
-    disable: function() {
+  // }}} Initial field values
+  // Methods {{{
+    active: function() { // {{{
+        return ("handler_id" in this);
+    }, // }}}
+    disable: function() { // {{{
         window.clearInterval(this.handler_id)
         delete this.handler_id
         delete this.starting_time
-    },
-    //@+node:gcross.20110627234551.1194: *3* pause
-    pause: function() {
+    }, // }}}
+    pause: function() { // {{{
         this.offset = new Date() - this.starting_time
         this.disable()
-    },
-    //@+node:gcross.20110627234551.1190: *3* start
-    start: function() {
+    }, // }}}
+    start: function() { // {{{
         this.starting_time = new Date() - this.offset
         delete this.offset
         var self = this;
         this.handler_id = window.setInterval(function() { self.step(); },this.interval*1000)
-    },
-    //@+node:gcross.20110627234551.1192: *3* step
-    step: function() {
+    }, // }}}
+    step: function() { // {{{
         var animation = this.animation
         var current_time = (new Date() - this.starting_time) / 1000
         if(current_time < animation.duration) {
@@ -280,18 +260,17 @@ Animator.prototype = {
             this.director.update()
             this.callback()
         }
-    },
-    //@+node:gcross.20110627234551.1193: *3* stop
-    stop: function() {
+    }, // }}}
+    stop: function() { // {{{
         delete this.offset
         this.disable()
-    }
-    //@-others
+    } // }}}
+  // }}} Methods
 }
-//@+node:gcross.20110627234551.1148: ** class Director
+//   }}} class Animator
+//   class Director {{{
 function Director(script) {
-    //@+<< Initialization >>
-    //@+node:gcross.20110627234551.1150: *3* << Initialization >>
+  // Initialization {{{
     this.tags = {"0":0}
     this.script_slides = []
     this.slides = [0]
@@ -318,26 +297,24 @@ function Director(script) {
 
     this.script = script
     this.stage = new Stage
-    //@-<< Initialization >>
+  // }}} Initialization
 }
 Director.prototype = {
-    //@+<< Initial field values >>
-    //@+node:gcross.20110627234551.1171: *3* << Initial field values >>
+  // Initial field values {{{
     marker: 0,
     prepared: 0,
     play_in_progress: false,
-    //@-<< Initial field values >>
-    //@+others
-    //@+node:gcross.20110627234551.1172: *3* advance
-    advance: function() {
+  // }}} Initial field values
+  // Methods {{{
+    advance: function() { // {{{
         this.prepare()
         if(!this.atTag()) this.script[this.marker].advance(this.stage)
         ++this.marker
-    },
-    //@+node:gcross.20110627234551.1188: *3* atTag
-    atTag: function() { return (typeof this.script[this.marker] == "string"); },
-    //@+node:gcross.20110627234551.1179: *3* fastforward
-    fastforward: function(n) {
+    }, // }}}
+    atTag: function() { // {{{
+        return (typeof this.script[this.marker] == "string");
+    }, // }}}
+    fastforward: function(n) { // {{{
         if(n == undefined) n = 1
         if(this.animator) {
             this.animator.stop()
@@ -347,20 +324,19 @@ Director.prototype = {
             n -= this.script_slides[this.marker] - this.script_slides[this.marker-1]
         }
         this.gotoSlide(this.getCurrentSlide()+n)
-    },
-    //@+node:gcross.20110629133112.1179: *3* getCurrentSlide
-    getCurrentSlide: function() { return this.script_slides[this.marker]; },
-    //@+node:gcross.20110627234551.1175: *3* gotoIndex
-    gotoIndex: function(index) {
+    }, // }}}
+    getCurrentSlide: function() { // {{{
+        return this.script_slides[this.marker];
+    }, // }}}
+    gotoIndex: function(index) { // {{{
         while(this.marker > index) {
             this.retract()
         }
         while(this.marker < index) {
             this.advance()
         }
-    },
-    //@+node:gcross.20110627234551.1176: *3* gotoSlide
-    gotoSlide: function(destination) {
+    }, // }}}
+    gotoSlide: function(destination) { // {{{
         switch(typeof destination) {
             case 'number':
                 destination = Math.max(1,Math.min(this.slides.length-1,destination))
@@ -372,9 +348,8 @@ Director.prototype = {
         }
         this.updateLocation()
         this.update()
-    },
-    //@+node:gcross.20110627234551.1182: *3* play
-    play: function(callback) {
+    }, // }}}
+    play: function(callback) { // {{{
         this.prepare()
         if(typeof this.script[this.marker] == "string" || !this.script[this.marker].duration) {
             this.advance()
@@ -395,37 +370,32 @@ Director.prototype = {
                 )
             this.animator.start()
         }
-    },
-    //@+node:gcross.20110627234551.1185: *3* playSlide
-    playSlide: function() {
+    }, // }}}
+    playSlide: function() { // {{{
         this.skipTagChunk()
         this.playUntilTagReached()
-    },
-    //@+node:gcross.20110627234551.1187: *3* playUntilTagReached
-    playUntilTagReached: function() {
+    }, // }}}
+    playUntilTagReached: function() { // {{{
         if(this.marker >= this.script.length || this.atTag()) {
             this.updateLocation()
         } else {
             var self = this
             this.play(function() { self.playUntilTagReached(); })
         }
-    },
-    //@+node:gcross.20110627234551.1170: *3* prepare
-    prepare: function() {
+    }, // }}}
+    prepare: function() { // {{{
         if(this.marker == this.prepared) {
             if(typeof this.script[this.marker] != "string") {
                 this.script[this.marker] = this.script[this.marker](this.stage)
             }
             ++this.prepared
         }
-    },
-    //@+node:gcross.20110627234551.1174: *3* retract
-    retract: function() {
+    }, // }}}
+    retract: function() { // {{{
         --this.marker
         if(!this.atTag()) this.script[this.marker].retract(this.stage)
-    },
-    //@+node:gcross.20110627234551.1177: *3* rewind
-    rewind: function(n) {
+    }, // }}}
+    rewind: function(n) { // {{{
         if(n == undefined) n = 1
         if(this.animator) {
             this.animator.stop()
@@ -434,20 +404,22 @@ Director.prototype = {
             n -= 1
         }
         this.gotoSlide(this.getCurrentSlide()-n)
-    },
-    //@+node:gcross.20110627234551.1186: *3* skipTagChunk
-    skipTagChunk: function() {
+    }, // }}}
+    skipTagChunk: function() { // {{{
         while(this.atTag()) this.advance()
-    },
-    //@+node:gcross.20110627234551.1183: *3* update
-    update: function() { this.stage.update(); },
-    //@+node:gcross.20110629133112.1178: *3* updateLocation
-    updateLocation: function() { window.location.hash = this.getCurrentSlide(); }
-    //@-others
+    }, // }}}
+    update: function() { // {{{
+        this.stage.update();
+    }, // }}}
+    updateLocation: function() { // {{{
+        window.location.hash = this.getCurrentSlide();
+    } // }}}
+  // }}} Methods
 }
-//@+node:gcross.20110627234551.1156: ** Augmentations
-//@+node:gcross.20110629121436.1178: *3* appendToMethod
-function appendToMethod(prototype,name,new_method) {
+//   }}} class Director
+// }}} Classes
+// Augmentations {{{
+function appendToMethod(prototype,name,new_method) { // {{{
     var old_method = prototype[name]
     if(old_method == undefined) {
         prototype[name] = new_method
@@ -457,14 +429,12 @@ function appendToMethod(prototype,name,new_method) {
             new_method.apply(this,arguments)
         }
     }
-}
-//@+node:gcross.20110629121436.1179: *3* augment
-function augment(cls,methods) {
+} // }}}
+function augment(cls,methods) { // {{{
     for(var name in methods)
         cls[name] = methods[name]
-}
-//@+node:gcross.20110629231851.1184: *3* augmentWithStyleBehavior
-function augmentWithStyleBehavior(actor_class) {
+} // }}}
+function augmentWithStyleBehavior(actor_class) { // {{{
     appendToMethod(actor_class,"update",function () {
         var style = ""
         for(var key in this.style) style += (key + ":" + this.style[key] + ";")
@@ -474,16 +444,14 @@ function augmentWithStyleBehavior(actor_class) {
             this.node.removeAttribute("style")
         }
     })
-}
-//@+node:gcross.20110627234551.1155: *3* augmentWithTransformBehavior
-function augmentWithTransformBehavior(actor_class) {
+} // }}}
+function augmentWithTransformBehavior(actor_class) { // {{{
     appendToMethod(actor_class,"update",function () {
         this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")scale(" + this.scale + ")")
     })
     augment(actor_class,{x: 0, y: 0, scale: 1})
-}
-//@+node:gcross.20110629133112.1185: *3* chainAfterMethod
-function chainAfterMethod(prototype,name,new_method) {
+} // }}}
+function chainAfterMethod(prototype,name,new_method) { // {{{
     var old_method = prototype[name]
     if(old_method == undefined) {
         prototype[name] = new_method
@@ -495,9 +463,10 @@ function chainAfterMethod(prototype,name,new_method) {
             return new_method.apply(this,new_arguments)
         }
     }
-}
-//@+node:gcross.20110627234551.1146: ** Actors
-//@+node:gcross.20110626200911.1139: *3* [ Actor prototype ]
+} // }}}
+// }}}
+// Actors {{{
+//   ActorPrototype {{{
 var ActorPrototype = {
     clearNode: function() {
         delete this.node
@@ -510,7 +479,8 @@ var ActorPrototype = {
         return this.node
     }
 }
-//@+node:gcross.20110626200911.1135: *3* UseActor
+//   }}}
+//   UseActor {{{
 function UseActor(id) {
     this.id = id
     this.style = {}
@@ -547,8 +517,10 @@ function hireAndFadeInUseActors(duration) {
     }
     return parallel.apply(null,hires)
 }
-//@+node:gcross.20110627234551.1147: ** Animations
-//@+node:gcross.20110712230720.1196: *3* PropertyAnimationPrototype
+//   }}}
+// }}} Actors
+// Animations {{{
+//   PropertyAnimationPrototype {{{
 var PropertyAnimationPrototype = {
     set: function(stage,new_value) {
         this.getObjectFromStage(stage)[this.property_name] = new_value
@@ -557,7 +529,8 @@ var PropertyAnimationPrototype = {
         return this.getObjectFromStage(stage)[this.property_name]
     }
 }
-//@+node:gcross.20110702143209.1189: *3* Null
+//   }}} PropertyAnimationPrototype
+//   Null {{{
 function NullAnimation(duration) {
     this.duration = duration
 }
@@ -570,7 +543,8 @@ NullAnimation.prototype = {
 function wait(duration) {
     return function(stage) { return new NullAnimation(duration) }
 }
-//@+node:gcross.20110626200911.1140: *3* Parallel
+//   }}} Null
+//   Parallel {{{
 function ParallelAnimation(animations) {
     this.animations = animations
     animations.forEach(function(animation) {
@@ -613,7 +587,8 @@ function parallel() {
         return new ParallelAnimation(animations)
     }
 }
-//@+node:gcross.20110626200911.1146: *3* Sequence
+//   }}} Parallel
+//   Sequence {{{
 function SequenceAnimation(animations) {
     this.animations = animations
     this.duration = 0
@@ -665,7 +640,8 @@ function sequence() {
         return new SequenceAnimation(animations)
     }
 }
-//@+node:gcross.20110629133112.1182: *3* Set
+//  }}} Sequence
+//   Set {{{
 function Set(getObjectFromStage,property_name,new_value,old_value) {
     this.getObjectFromStage = getObjectFromStage
     this.property_name = property_name
@@ -684,7 +660,8 @@ function set(getObjectFromStage,property_name,new_value) {
         return new Set(getObjectFromStage,property_name,new_value,getObjectFromStage(stage)[property_name])
     }
 }
-//@+node:gcross.20110711171503.1272: *3* Remove
+//   }}} Set
+//   Remove {{{
 function Remove(getObjectFromStage,property_name,old_value) {
     this.getObjectFromStage = getObjectFromStage
     this.property_name = property_name
@@ -708,7 +685,8 @@ function remove(getObjectFromStage,property_name) {
         return new Remove(getObjectFromStage,property_name,getObjectFromStage(stage)[property_name])
     }
 }
-//@+node:gcross.20110629133112.1188: *3* Interpolating
+//   }}} Remove
+//   Interpolating {{{
 function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,old_value,starting_value,ending_value) {
     starting_value = Number(starting_value)
     ending_value = Number(ending_value)
@@ -758,7 +736,8 @@ function makeInterpolater(easing) {
         return interpolate(easing,duration,getObjectFromStage,property_name,v1,v2)
     }
 }
-//@+node:gcross.20110629233843.1185: *3* Fading
+//   }}} Interpolating
+//   Fading {{{
 function fadeOut(duration,getObjectFromStage,starting_opacity) {
     getObjectFromStage = convertStringToGetter(getObjectFromStage)
     return function(stage) {
@@ -789,8 +768,10 @@ function fadeIn(duration,getObjectFromStage,current_opacity) {
         1
     )
 }
-//@+node:gcross.20110627234551.1162: ** Cast changes
-//@+node:gcross.20110627234551.1163: *3* Hire
+//   }}} Fading
+// }}} Animations
+// Cast changes {{{
+//   Hire {{{
 function Hire(name,actor,actor_name_after) {
     this.name = name
     this.actor = actor
@@ -823,7 +804,8 @@ function hireAndFadeIn(duration,name,actor,actor_name_after) {
         fadeIn(duration,name)
     )
 }
-//@+node:gcross.20110627234551.1167: *3* Fire
+//   }}} Hire
+//   Fire {{{
 function Fire(name,actor,actor_name_after) {
     this.name = name
     this.actor = actor
@@ -862,7 +844,8 @@ function fadeOutAndFire(duration) {
         fire.apply(null,names)
     )
 }
-//@+node:gcross.20110702143209.1200: *3* MoveInStack
+//   }}} Fire
+//   MoveInStack {{{
 function MoveInStack(name,old_name_after,new_name_after) {
     this.name = name
     this.old_name_after = old_name_after
@@ -889,10 +872,11 @@ function moveToEnd(name) {
         return new MoveInStack(name,stage.getActorNameAfter(name))
     }
 }
-//@+node:gcross.20110629221709.1183: ** Interpolations
+//   }}} MoveInStack
+// }}} Cast changes
+// Interpolations {{{
 var linear = makeInterpolater(function(t) { return t; })
 var smooth = makeInterpolater(function(t) { var x = Math.sin(Math.PI*t/2); return x*x; })
 var decelerate = makeInterpolater(function(t) { return Math.sin(Math.PI*t/2); })
 var accelerate = makeInterpolater(function(t) { return 1-Math.cos(Math.PI*t/2); })
-//@-others
-//@-leo
+// }}} Interpolations
