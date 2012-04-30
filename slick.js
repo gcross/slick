@@ -76,7 +76,11 @@ var default_value = undefined
 // Functions {{{
 function convertStringToGetter(getObjectFromStage) { // {{{
     if(typeof getObjectFromStage == "string")
-        return function(stage) { return stage[getObjectFromStage]; }
+        return function(stage) {
+            var object = stage[getObjectFromStage]
+            if(!object) throw Error("unable to find object named '" + getObjectFromStage + "' on the stage")
+            return object
+        }
     else
         return getObjectFromStage
 } // }}}
