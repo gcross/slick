@@ -82,6 +82,8 @@ function convertStringToGetter(getObjectFromStage) { // {{{
 } // }}}
 function styleFor(selector) { // {{{
     return function(stage) {
+        var actor = stage.getActor(selector)
+        if(actor && "style" in actor) return actor["style"]
         return stage.lookupStyleFor(selector)
     }
 } // }}}
