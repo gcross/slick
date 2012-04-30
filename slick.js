@@ -710,8 +710,16 @@ augment(InterpolatingAnimation.prototype,{
 
 function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
     return function(stage) {
+        var actor_name
+        if(typeof getObjectFromStage === "string") {
+            actor_name = getObjectFromStage
+        }
         getObjectFromStage = convertStringToGetter(getObjectFromStage)
-        var old_value = getObjectFromStage(stage)[property_name]
+        try {
+            var old_value = getObjectFromStage(stage)[property_name]
+        } catch(e) {
+            throw TypeError("actor '" + actor_name + "' does not have property '" + property_name + "'")
+        }
         var starting_value, ending_value
         if(v2 == undefined) {
             starting_value = old_value
