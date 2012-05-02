@@ -160,6 +160,7 @@ Stage.prototype = {
             this.appendActor(name,actor)
             return
         }
+        this.assertActorPresent(before_name)
         this[name] = actor
         this.ordering.splice(this.ordering.indexOf(before_name),0,name)
         if(this.node) this.node.insertBefore(this.addActorNode(name,actor),this.nodes[before_name])
