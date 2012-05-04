@@ -695,6 +695,7 @@ function remove(getObjectFromStage,property_name) {
 //   }}} Remove
 //   Interpolating {{{
 function InterpolatingAnimation(easing,duration,getObjectFromStage,property_name,old_value,starting_value,ending_value) {
+    if(typeof duration !== "number") throw Error("non-numeric value '" + duration + "' given for the duration of the animation")
     starting_value = Number(starting_value)
     ending_value = Number(ending_value)
     this.ease = easing
@@ -812,6 +813,7 @@ function hire(name,actor,actor_name_after) {
 }
 
 function hireAndFadeIn(duration,name,actor,actor_name_after) {
+    if(typeof duration !== "number") throw Error("non-numeric value '" + duration + "' given for the duration of the actor fade-in")
     if(!actor) actor = UseActor
     if(typeof actor == "function") actor = new actor(name)
     return sequence(
