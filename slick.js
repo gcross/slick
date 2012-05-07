@@ -749,6 +749,7 @@ function interpolate(easing,duration,getObjectFromStage,property_name,v1,v2) {
 
 function makeInterpolater(easing) {
     return function(duration,getObjectFromStage,property_name,v1,v2) {
+        if(typeof duration !== "number") throw TypeError("the duration must be a number, not '" + duration + "'")
         return interpolate(easing,duration,getObjectFromStage,property_name,v1,v2)
     }
 }
