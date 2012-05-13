@@ -489,6 +489,9 @@ var ActorPrototype = {
 //   }}}
 //   UseActor {{{
 function UseActor(id) {
+    if(!document.getElementById(id)) {
+        throw Error("UseActor is unable to find a node with id '" + id + "'")
+    }
     this.id = id
     this.style = {}
 }
