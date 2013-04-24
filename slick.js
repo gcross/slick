@@ -901,3 +901,29 @@ var smooth = makeInterpolater(function(t) { var x = Math.sin(Math.PI*t/2); retur
 var decelerate = makeInterpolater(function(t) { return Math.sin(Math.PI*t/2); })
 var accelerate = makeInterpolater(function(t) { return 1-Math.cos(Math.PI*t/2); })
 // }}} Interpolations
+// Heading Management {{{
+var current_heading_index = -1
+
+function nextHeadingIndex() { // {{{
+    current_heading_index += 1
+    return current_heading_index
+} // }}}
+function rotateNextHeading() { // {{{
+    return rotateHeading(nextHeadingIndex())
+} // }}}
+function rotateHeading(index) { // {{{
+    return sequence(
+        parallel(
+            accelerate(0.25,headings[index-1],"y",-50),
+            fadeOutAndFire(0.25,headings[index-1])
+        ),
+        hireUseActor(headings[index]),
+        set(headings[index],"y",-50),
+        parallel(
+            decelerate(0.25,headings[index],"y",0),
+            fadeIn(0.25,headings[index])
+        )
+    )
+} // }}}
+// }}} Heading Management
+
