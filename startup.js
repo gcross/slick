@@ -17,7 +17,8 @@ window.addEventListener("load",function() {
         "",
         fadeOutAndFire(1,"title_slide"),
         hireAndFadeInUseActors(0.5,
-            "standard_backdrop",
+            "standard_backdrop_bottom",
+            "standard_backdrop_top",
             headings[nextHeadingIndex()]
         ),
     ].concat(script()))
