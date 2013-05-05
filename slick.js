@@ -454,9 +454,9 @@ function augmentWithStyleBehavior(actor_class) { // {{{
 } // }}}
 function augmentWithTransformBehavior(actor_class) { // {{{
     appendToMethod(actor_class,"update",function () {
-        this.node.setAttribute("transform","translate(" + this.x + "," + this.y + ")scale(" + this.scale + ")")
+        this.node.setAttribute("transform","translate(" + (this.x - this.cx*(this.scale-1)) + "," + (this.y - this.cy*(this.scale-1)) + ")scale(" + this.scale + ")")
     })
-    augment(actor_class,{x: 0, y: 0, scale: 1})
+    augment(actor_class,{x: 0, y: 0, scale: 1, cx: 0, cy: 0})
 } // }}}
 function chainAfterMethod(prototype,name,new_method) { // {{{
     var old_method = prototype[name]
