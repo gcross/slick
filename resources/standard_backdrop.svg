@@ -1,0 +1,44 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    height="768"
+    width="1024"
+    version="1.1"
+    style="background-color:black"
+>
+<linearGradient
+   x1="485.95532"
+   y1="130"
+   x2="485.95532"
+   y2="-182.48184"
+   id="linearGradient3698"
+   xlink:href="#linearGradient3448"
+   gradientUnits="userSpaceOnUse"
+   gradientTransform="matrix(0.9980468,0,0,1,2.0000095,-5e-5)" />
+<linearGradient
+   id="linearGradient3448">
+  <stop
+     style="stop-color:#000000;stop-opacity:1"
+     offset="0" />
+  <stop
+     style="stop-color:#4f4f4f;stop-opacity:1"
+     offset="0.6122449" />
+  <stop
+     style="stop-color:#aeaeae;stop-opacity:1"
+     offset="1" />
+</linearGradient>
+<rect
+ id="standard_backdrop_bottom"
+ width="1024"
+ height="768"
+ x="0"
+ y="0"
+ style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:3.2330811;marker:none;visibility:visible;display:inline;overflow:visible" />
+<rect
+ id="standard_backdrop_top"
+ width="1024"
+ height="130"
+ x="0"
+ y="0"
+ style="fill:url(#linearGradient3698);fill-opacity:1;stroke:none;display:inline" />
+</svg>

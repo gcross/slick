@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" height="768" width="1024" version="1.1" style="background-color:black">
+<style>
+    .heading {
+        font-size:40px;
+        fill:#ffffff;
+        fill-opacity:1;
+        font-family:Futura;
+        position:fixed;
+    }
+</style>
+<text
+    id="heading_template"
+    x="30.5"
+    y="80.5"
+    class="heading"
+/>
+</svg>
