@@ -25,10 +25,8 @@ defs = Element(svgns + "defs",{"id":"resources"})
 for filename in os.listdir("resources"):
     if not filename.endswith(".svg"): continue
     print("Parsing " + filename + "...")
-    tree = parse(os.path.join("resources",filename))
-    root = tree.getroot()
-    for child in root:
-        if child.tag.startswith("{http://www.w3.org/2000/svg}"):
+    for child in parse(os.path.join("resources",filename)).getroot():
+        if child.tag.startswith(svgns):
             defs.append(child)
 
 output.append(defs)
