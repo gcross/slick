@@ -14,7 +14,10 @@ output = Element(
 )
 
 for script_name in ["slick.js","startup.js","script.js"]:
-    output.append(Element(svgns + "script",{"{http://www.w3.org/1999/xlink}href":script_name}))
+    with open(script_name,"rt") as f:
+        script_element = Element(svgns + "script")
+        script_element.text = f.read()
+        output.append(script_element)
 
 defs = Element(svgns + "defs",{"id":"resources"})
 
