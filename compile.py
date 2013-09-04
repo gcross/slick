@@ -11,6 +11,7 @@ output = Element(
     width="1024",
     version="1.1",
     style="background-color:black",
+    onload="initialize()",
 )
 
 for script_name in ["slick.js","startup.js","script.js"]:

@@ -1,5 +1,5 @@
 // Startup {{{
-window.addEventListener("load",function() {
+function initialize() {
     (function() {
         var resources = document.getElementById("resources")
         var heading_template = document.getElementById("heading_template")
@@ -22,5 +22,5 @@ window.addEventListener("load",function() {
             headings[nextHeadingIndex()]
         ),
     ].concat(script()))
-},false)
+}
 // }}}
