@@ -1,0 +1,15 @@
+Name:              slick
+Version:           1.0
+License:           BSD3
+Author:            Gregory Crosswhite
+Maintainer:        Gregory Crosswhite <gcrosswhite@gmail.com>
+Synopsis:          
+Build-type:        Simple
+Cabal-version:     >= 1.8
+
+Library
+    HS-source-dirs:  src
+    Exposed-modules:
+        Slick.Animation
+    Build-depends:
+        base
