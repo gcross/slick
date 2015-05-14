@@ -11,18 +11,18 @@ import Test.QuickCheck
 
 import Slick.Animation
 
-testForNullInactiveAnimation animation =
+testForNullAnimation animation =
     case animation of
-        InactiveAnimation Animation{..} →
+        Animation{..} →
             testProperty "length 0" $ \(t::Int) (x::Int) →
-                fst (animationFunction t x animationInitialCache) == x
+                fst (animationFunction t x animationCache) == x
 
 tests =
     [testGroup "serial"
-        [testForNullInactiveAnimation . serial $ []
+        [testForNullAnimation . serial $ []
         ]
     ,testGroup "parallel"
-        [testForNullInactiveAnimation . parallel $ []
+        [testForNullAnimation . parallel $ []
         ]
     ]
 
