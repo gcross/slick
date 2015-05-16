@@ -13,6 +13,15 @@ data Animation α β = ∀ ɣ. Animation
     , animationFunction :: α → (β → ɣ → (β, ɣ))
     }
 
+null_animation :: Num α ⇒ Animation α β
+null_animation = Animation 0 () (\_ x y → (x,y))
+
+cachelessAnimation :: α → (α → β → β) → Animation α β
+cachelessAnimation duration function = Animation duration () (\t x () → (function t x, ()))
+
+statelessAnimation :: α → (α → α) → Animation α α
+statelessAnimation duration function = Animation duration () (\t _ () → (function t, ()))
+
 durationOf :: Animation α β → α
 durationOf animation = case animation of Animation{..} → animationDuration
 
@@ -62,9 +71,6 @@ moveRight state (AnimationZipper left (right:rest) current left_time) = (new_sta
         , zipperCurrent = right
         , zipperLeftTime = left_time + durationOf current
         }
-
-null_animation :: Num α ⇒ Animation α β
-null_animation = Animation 0 () (\_ x y → (x,y))
 
 serial :: (Num α, Ord α) ⇒ [Animation α β] → Animation α β
 serial [] = null_animation
