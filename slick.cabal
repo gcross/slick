@@ -12,7 +12,8 @@ Library
     Exposed-modules:
         Slick.Animation
     Build-depends:
-        base
+        base,
+        composition == 1.0.*
 
 Test-suite tests
     Type: exitcode-stdio-1.0
@@ -22,7 +23,8 @@ Test-suite tests
         slick,
         base,
         HUnit == 1.2.*,
-        test-framework== 0.8.*,
+        lens == 4.9.*,
+        test-framework == 0.8.*,
         test-framework-hunit == 0.3.*,
         test-framework-quickcheck2 == 0.3.*,
         QuickCheck == 2.7.*

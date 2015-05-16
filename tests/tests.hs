@@ -1,7 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
+
+import Control.Lens (_1, _2, (.~))
 
 import Test.Framework
 import Test.Framework.Providers.HUnit
@@ -10,8 +13,6 @@ import Test.HUnit
 import Test.QuickCheck
 
 import Slick.Animation
-
-test_animation = cachelessAnimation 1 (\t x → t+x)
 
 testForNullAnimationWithCombiner combiner =
     case combiner [] of
@@ -22,22 +23,19 @@ testForNullAnimationWithCombiner combiner =
 testSingletonGroup combiner = testGroup "length 1" $
     [testCase "correct duration" $
         durationOf (combiner [test_animation]) @=? 1
-    ,testProperty "correct interior" $ \(x::Int) → do
+    ,testProperty "correct interior" $ \x → do
         t ← choose (0,1)
-        return $
-            case combiner [test_animation] of
-                Animation{..} → fst (animationFunction t x animationCache) == t+x
-    ,testProperty "correctly clamps the left" $ \(x::Int) → do
+        return $ runAnimationState t x (combiner [test_animation]) == t+x
+    ,testProperty "correctly clamps the left" $ \x → do
         t ← choose (-10,-1)
-        return $
-            case combiner [test_animation] of
-                Animation{..} → fst (animationFunction t x animationCache) == x
-    ,testProperty "correctly clamps the right" $ \(x::Int) → do
+        return $ runAnimationState t x (combiner [test_animation]) == x
+    ,testProperty "correctly clamps the right" $ \x → do
         t ← choose (2,10)
-        return $
-            case combiner [test_animation] of
-                Animation{..} → fst (animationFunction t x animationCache) == 1+x
+        return $ runAnimationState t x (combiner [test_animation]) == 1+x
     ]
+  where
+    test_animation :: Animation Int Int
+    test_animation = cachelessAnimation 1 (\t x → t+x)
 
 tests =
     [testGroup "serial"
@@ -47,6 +45,22 @@ tests =
     ,testGroup "parallel"
         [testForNullAnimationWithCombiner parallel
         ,testSingletonGroup parallel
+        ,testGroup "length 2" $
+            [testCase "correct duration" $
+                durationOf (parallel [statelessAnimation 1 id, statelessAnimation 2 id]) @?= 2
+            ,testProperty "correct behavior" $ do
+                t ← choose (0::Int, 2::Int)
+                let animation =
+                        (parallel
+                            [cachelessAnimation (2::Int) (\t → (_1 .~ t))
+                            ,cachelessAnimation (1::Int) (\t → (_2 .~ t*t))
+                            ]
+                        )
+                return $ case runAnimation t (undefined::Int,undefined::Int) animation of
+                    ((x,y), _)
+                      | t >= 2 → (x == t) && (y == 1)
+                      | otherwise → (x == t) && (y == t*t)
+            ]
         ]
     ]
 

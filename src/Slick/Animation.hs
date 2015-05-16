@@ -5,6 +5,8 @@
 module Slick.Animation where
 
 import Control.Exception (assert)
+
+import Data.Composition ((.**))
 import Data.List (mapAccumL)
 
 data Animation α β = ∀ ɣ. Animation
@@ -25,11 +27,14 @@ statelessAnimation duration function = Animation duration () (\t _ () → (funct
 durationOf :: Animation α β → α
 durationOf animation = case animation of Animation{..} → animationDuration
 
-runAnimation :: Animation α β → α → β → (β, Animation α β)
-runAnimation Animation{..} t state =
+runAnimation :: α → β → Animation α β → (β, Animation α β)
+runAnimation t state Animation{..} =
     (new_state, Animation animationDuration new_cache animationFunction)
   where
     (new_state, new_cache) = animationFunction t state animationCache
+
+runAnimationState :: α → β → Animation α β → β
+runAnimationState = fst .** runAnimation
 
 data AnimationZipper α β = AnimationZipper
     { zipperLeft :: [Animation α β]
@@ -101,7 +106,7 @@ serial animations@(first:rest) = Animation{..}
       | otherwise = (new_state, new_zipper)
       where
           (new_state, new_animation) =
-              runAnimation zipperCurrent (time - zipperLeftTime) state
+              runAnimation (time - zipperLeftTime) state zipperCurrent
           new_zipper = zipper{zipperCurrent=new_animation}
 
 type ParallelCache α β = [Animation α β]
@@ -121,7 +126,7 @@ parallel animations = Animation animationDuration animationCache animationFuncti
           mapAccumL
             (\state animation@Animation{..} →
                 let clamped_time = if time > animationDuration then animationDuration else time
-                in runAnimation animation clamped_time state
+                in runAnimation clamped_time state animation
             )
             state
             list
