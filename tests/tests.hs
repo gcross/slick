@@ -20,7 +20,7 @@ testForNullAnimationWithCombiner combiner =
             testProperty "length 0" $ \(t::Int) (x::Int) →
                 fst (animationFunction t x animationCache) == x
 
-testSingletonGroup combiner = testGroup "length 1" $
+testLength1Group combiner = testGroup "length 1" $
     [testCase "correct duration" $
         durationOf (combiner [test_animation]) @=? 1
     ,testProperty "correct interior" $ \x → do
@@ -40,11 +40,11 @@ testSingletonGroup combiner = testGroup "length 1" $
 tests =
     [testGroup "serial"
         [testForNullAnimationWithCombiner serial
-        ,testSingletonGroup serial
+        ,testLength1Group serial
         ]
     ,testGroup "parallel"
         [testForNullAnimationWithCombiner parallel
-        ,testSingletonGroup parallel
+        ,testLength1Group parallel
         ,testGroup "length 2" $
             [testCase "correct duration" $
                 durationOf (parallel [statelessAnimation 1 id, statelessAnimation 2 id]) @?= 2
