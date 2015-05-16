@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
-import Control.Lens (_1, _2, (.~))
+import Control.Lens (_1, _2, _3, (.~))
 
 import Test.Framework
 import Test.Framework.Providers.HUnit
@@ -60,6 +60,23 @@ tests =
                     ((x,y), _)
                       | t >= 2 → (x == t) && (y == 1)
                       | otherwise → (x == t) && (y == t*t)
+            ]
+        ,testGroup "length 3" $
+            [testCase "correct duration" $
+                durationOf (parallel [statelessAnimation 1 id, statelessAnimation 2 id, statelessAnimation 1 id]) @?= 2
+            ,testProperty "correct behavior" $ do
+                t ← choose (0::Int, 2::Int)
+                let animation =
+                        (parallel
+                            [cachelessAnimation (1::Int) (\t → (_1 .~ t))
+                            ,cachelessAnimation (2::Int) (\t → (_2 .~ t*t))
+                            ,cachelessAnimation (1::Int) (\t → (_3 .~ t*t*t))
+                            ]
+                        )
+                return $ case runAnimation t (undefined::Int,undefined::Int,undefined::Int) animation of
+                    ((x,y,z), _)
+                      | t >= 2 → (x == 1) && (y == t*t) && (z == 1)
+                      | otherwise → (x == t) && (y == t*t) && (z == t*t*t)
             ]
         ]
     ]
