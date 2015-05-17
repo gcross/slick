@@ -57,7 +57,7 @@ moveLeft state (AnimationZipper (left:rest) right current left_time) = (new_stat
         { zipperLeft = rest
         , zipperRight = current:right
         , zipperCurrent = left
-        , zipperLeftTime = left_time - durationOf current
+        , zipperLeftTime = left_time - durationOf left
         }
 
 moveRight :: Num α ⇒ β → AnimationZipper α β → (β, AnimationZipper α β)

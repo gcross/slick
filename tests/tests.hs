@@ -6,6 +6,14 @@
 
 import Control.Lens (_1, _2, _3, (.~))
 
+import Data.List (intercalate)
+
+import Text.Printf (printf)
+
+import System.IO.Unsafe (unsafePerformIO)
+
+import System.Random (Random)
+
 import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
@@ -37,46 +45,93 @@ testLength1Group combiner = testGroup "length 1" $
     test_animation :: Animation Int Int
     test_animation = cachelessAnimation 1 (\t x → t+x)
 
+checkAnimationCorrectness ::
+    (Num α, Random α, Show α, Show β) ⇒
+    β →
+    (α → β → Bool) →
+    Animation α β →
+    Property
+checkAnimationCorrectness initial_state correctState animation = property $
+    listOf (choose (0, durationOf animation))
+    >>=
+    return . ioProperty . go initial_state animation []
+  where
+    go _ _ _ [] = return True
+    go state animation past_reversed (t:future) = do
+        let times = t:reverse past_reversed
+            message = printf "After times %s got incorrect state %s."
+                (intercalate ", " (map show times))
+                (show new_state)
+            (new_state, new_animation) = runAnimation t state animation
+        assertBool message (correctState t new_state)
+        go new_state new_animation (t:past_reversed) future
+
 tests =
     [testGroup "serial"
         [testForNullAnimationWithCombiner serial
         ,testLength1Group serial
+        ,testGroup "length 2" $
+            [testCase "correct duration" $
+                durationOf (serial [statelessAnimation 1 id, statelessAnimation 2 id]) @?= 3
+            ,testGroup "correct behavior"
+                [testProperty "function of time only" $
+                    checkAnimationCorrectness
+                        (0::Float)
+                        (\t x → if t < 1 then x == t else x == 1-(t-1)/2)
+                        (serial
+                            [cachelessAnimation (1::Float) (\t _ → t)
+                            ,cachelessAnimation (2::Float) (\t _ → 1-t/2)
+                            ]
+                        )
+                ]
+            ]
         ]
     ,testGroup "parallel"
         [testForNullAnimationWithCombiner parallel
         ,testLength1Group parallel
         ,testGroup "length 2" $
             [testCase "correct duration" $
-                durationOf (parallel [statelessAnimation 1 id, statelessAnimation 2 id]) @?= 2
-            ,testProperty "correct behavior" $ do
-                t ← choose (0::Int, 2::Int)
-                let animation =
-                        (parallel
-                            [cachelessAnimation (2::Int) (\t → (_1 .~ t))
-                            ,cachelessAnimation (1::Int) (\t → (_2 .~ t*t))
-                            ]
-                        )
-                return $ case runAnimation t (undefined::Int,undefined::Int) animation of
-                    ((x,y), _)
-                      | t >= 2 → (x == t) && (y == 1)
-                      | otherwise → (x == t) && (y == t*t)
+                durationOf
+                    (parallel
+                        [statelessAnimation 1 id
+                        ,statelessAnimation 2 id
+                        ]
+                    )
+                @?= 2
+            ,testProperty "correct behavior" $
+                checkAnimationCorrectness
+                    (0::Float,0::Float)
+                    (\t (x,y) → x == t && if t <= 1 then y == t*t else y == 1)
+                    (parallel
+                        [cachelessAnimation 2  (\t → (_1 .~ t))
+                        ,cachelessAnimation 1  (\t → (_2 .~ t*t))
+                        ]
+                    )
             ]
         ,testGroup "length 3" $
             [testCase "correct duration" $
-                durationOf (parallel [statelessAnimation 1 id, statelessAnimation 2 id, statelessAnimation 1 id]) @?= 2
-            ,testProperty "correct behavior" $ do
-                t ← choose (0::Int, 2::Int)
-                let animation =
-                        (parallel
-                            [cachelessAnimation (1::Int) (\t → (_1 .~ t))
-                            ,cachelessAnimation (2::Int) (\t → (_2 .~ t*t))
-                            ,cachelessAnimation (1::Int) (\t → (_3 .~ t*t*t))
-                            ]
-                        )
-                return $ case runAnimation t (undefined::Int,undefined::Int,undefined::Int) animation of
-                    ((x,y,z), _)
-                      | t >= 2 → (x == 1) && (y == t*t) && (z == 1)
-                      | otherwise → (x == t) && (y == t*t) && (z == t*t*t)
+                durationOf
+                    (parallel
+                        [statelessAnimation 1 id
+                        ,statelessAnimation 3 id
+                        ,statelessAnimation 2 id
+                        ]
+                    )
+                @?= 3
+            ,testProperty "correct behavior" $
+                checkAnimationCorrectness
+                    (0::Float,0::Float,0::Float)
+                    (\t (x,y,z) →
+                        and [if t <= 1 then x == t else x == 1
+                            ,y == t*t
+                            ,if t <= 2 then z == t*t*t else z == 8
+                            ])
+                    (parallel
+                        [cachelessAnimation 1  (\t → (_1 .~ t))
+                        ,cachelessAnimation 3  (\t → (_2 .~ t*t))
+                        ,cachelessAnimation 2  (\t → (_3 .~ t*t*t))
+                        ]
+                    )
             ]
         ]
     ]

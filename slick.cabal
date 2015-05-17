@@ -24,6 +24,7 @@ Test-suite tests
         base,
         HUnit == 1.2.*,
         lens == 4.9.*,
+        random == 1.*,
         test-framework == 0.8.*,
         test-framework-hunit == 0.3.*,
         test-framework-quickcheck2 == 0.3.*,
