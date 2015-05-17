@@ -72,7 +72,13 @@ tests =
         ,testLength1Group serial
         ,testGroup "length 2" $
             [testCase "correct duration" $
-                durationOf (serial [statelessAnimation 1 id, statelessAnimation 2 id]) @?= 3
+                durationOf
+                    (serial
+                        [statelessAnimation 1 id
+                        ,statelessAnimation 2 id
+                        ]
+                    )
+                @?= 3
             ,testGroup "correct behavior"
                 [testProperty "function of time only" $
                     checkAnimationCorrectness
@@ -123,13 +129,13 @@ tests =
                     (0::Float,0::Float,0::Float)
                     (\t (x,y,z) →
                         and [if t <= 1 then x == t else x == 1
-                            ,y == t*t
-                            ,if t <= 2 then z == t*t*t else z == 8
+                            ,y == t**2
+                            ,if t <= 2 then z == t**3 else z == 8
                             ])
                     (parallel
                         [cachelessAnimation 1  (\t → (_1 .~ t))
-                        ,cachelessAnimation 3  (\t → (_2 .~ t*t))
-                        ,cachelessAnimation 2  (\t → (_3 .~ t*t*t))
+                        ,cachelessAnimation 3  (\t → (_2 .~ t**2))
+                        ,cachelessAnimation 2  (\t → (_3 .~ t**3))
                         ]
                     )
             ]
