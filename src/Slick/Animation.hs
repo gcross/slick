@@ -64,11 +64,7 @@ moveRight :: Num α ⇒ β → AnimationZipper α β → (β, AnimationZipper α
 moveRight state zipper@AnimationZipper{zipperRight=[]} = (state, zipper)
 moveRight state (AnimationZipper left (right:rest) current left_time) = (new_state, new_zipper)
   where
-    new_state = case current of
-                    Animation{..} →
-                        fst $ animationFunction (left_time + animationDuration)
-                                                state
-                                                animationCache
+    new_state = case current of Animation{..} → fst $ animationFunction animationDuration state animationCache
     new_zipper =
         AnimationZipper
         { zipperLeft = current:left

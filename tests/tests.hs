@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -87,6 +88,56 @@ tests =
                         (serial
                             [cachelessAnimation (1::Float) (\t _ → t)
                             ,cachelessAnimation (2::Float) (\t _ → 1-t/2)
+                            ]
+                        )
+                ,testProperty "2-tuple" $
+                    checkAnimationCorrectness
+                        (0::Float,0::Float)
+                        (\t (x,y) → if t < 1 then x == t else x == 1 && y == (t-1)**2)
+                        (serial
+                            [cachelessAnimation (1::Float) (\t → (_1 .~ t))
+                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
+                            ]
+                        )
+                ]
+            ]
+        ,testGroup "length 3" $
+            [testCase "correct duration" $
+                durationOf
+                    (serial
+                        [statelessAnimation 1 id
+                        ,statelessAnimation 3 id
+                        ,statelessAnimation 2 id
+                        ]
+                    )
+                @?= 6
+            ,testGroup "correct behavior"
+                [testProperty "function of time only" $
+                    checkAnimationCorrectness
+                        (0::Float)
+                        (\t x → if
+                            | t < 1 → x == t
+                            | t >= 1 && t < 4 → x == 1-(t-1)/3
+                            | otherwise → x == (t-4)**2
+                        )
+                        (serial
+                            [cachelessAnimation (1::Float) (\t _ → t)
+                            ,cachelessAnimation (3::Float) (\t _ → 1-t/3)
+                            ,cachelessAnimation (2::Float) (\t _ → t**2)
+                            ]
+                        )
+                ,testProperty "3-tuple" $
+                    checkAnimationCorrectness
+                        (0::Float,0::Float,0::Float)
+                        (\t (x,y,z) → if
+                            | t < 2 → x == t
+                            | t >= 2 && t < 3 → x == 2 && y == (t-2)**2
+                            | otherwise → x == 2 && y == 1 && z == (t-3)**3
+                        )
+                        (serial
+                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
+                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
+                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
                             ]
                         )
                 ]
