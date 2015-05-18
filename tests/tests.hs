@@ -32,15 +32,9 @@ testForNullAnimationWithCombiner combiner =
 testLength1Group combiner = testGroup "length 1" $
     [testCase "correct duration" $
         durationOf (combiner [test_animation]) @=? 1
-    ,testProperty "correct interior" $ \x → do
+    ,testProperty "correct behavior" $ \x → do
         t ← choose (0,1)
         return $ runAnimationState t x (combiner [test_animation]) == t+x
-    ,testProperty "correctly clamps the left" $ \x → do
-        t ← choose (-10,-1)
-        return $ runAnimationState t x (combiner [test_animation]) == x
-    ,testProperty "correctly clamps the right" $ \x → do
-        t ← choose (2,10)
-        return $ runAnimationState t x (combiner [test_animation]) == 1+x
     ]
   where
     test_animation :: Animation Int Int
@@ -72,90 +66,89 @@ tests =
         [testForNullAnimationWithCombiner serial
         ,testLength1Group serial
         ,testGroup "length 2" $
-            [testCase "correct duration" $
-                durationOf
-                    (serial
-                        [statelessAnimation 1 id
-                        ,statelessAnimation 2 id
+            [testGroup "function of time only" $
+                let animation :: Animation Float Float
+                    animation = serial
+                        [cachelessAnimation 1 (\t _ → t)
+                        ,cachelessAnimation 2 (\t _ → 1-t/2)
                         ]
-                    )
-                @?= 3
-            ,testGroup "correct behavior"
-                [testProperty "function of time only" $
-                    checkAnimationCorrectness
-                        (0::Float)
-                        (\t x → if t < 1 then x == t else x == 1-(t-1)/2)
-                        (serial
-                            [cachelessAnimation (1::Float) (\t _ → t)
-                            ,cachelessAnimation (2::Float) (\t _ → 1-t/2)
-                            ]
-                        )
-                ,testProperty "2-tuple" $
-                    checkAnimationCorrectness
-                        (0::Float,0::Float)
-                        (\t (x,y) → if t < 1 then x == t else x == 1 && y == (t-1)**2)
-                        (serial
-                            [cachelessAnimation (1::Float) (\t → (_1 .~ t))
-                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
-                            ]
-                        )
-                ]
+                in  [testCase "correct duration" $ durationOf animation @?= 3
+                    ,testProperty "correct behavior" $
+                         checkAnimationCorrectness
+                            (0)
+                            (\t x → if t < 1 then x == t else x == 1-(t-1)/2)
+                            animation
+                    ]
+            ,testGroup "2-tuple" $
+                let animation :: Animation Float (Float,Float)
+                    animation = serial
+                        [cachelessAnimation 1 (\t → (_1 .~ t))
+                        ,cachelessAnimation 1 (\t → (_2 .~ t**2))
+                        ]
+                 in [testCase "correct duration" $ durationOf animation @?= 2
+                    ,testProperty "correct behavior" $
+                        checkAnimationCorrectness
+                            (0,0)
+                            (\t (x,y) → if t < 1 then x == t else x == 1 && y == (t-1)**2)
+                            animation
+                    ]
             ]
         ,testGroup "length 3" $
-            [testCase "correct duration" $
-                durationOf
-                    (serial
-                        [statelessAnimation 1 id
-                        ,statelessAnimation 3 id
-                        ,statelessAnimation 2 id
+            [testGroup "function of time only" $
+                let animation :: Animation Float Float
+                    animation = serial
+                        [cachelessAnimation (1::Float) (\t _ → t)
+                        ,cachelessAnimation (3::Float) (\t _ → 1-t/3)
+                        ,cachelessAnimation (2::Float) (\t _ → t**2)
                         ]
-                    )
-                @?= 6
-            ,testGroup "correct behavior"
-                [testProperty "function of time only" $
-                    checkAnimationCorrectness
-                        (0::Float)
-                        (\t x → if
-                            | t < 1 → x == t
-                            | t >= 1 && t < 4 → x == 1-(t-1)/3
-                            | otherwise → x == (t-4)**2
-                        )
-                        (serial
-                            [cachelessAnimation (1::Float) (\t _ → t)
-                            ,cachelessAnimation (3::Float) (\t _ → 1-t/3)
-                            ,cachelessAnimation (2::Float) (\t _ → t**2)
+                in [testCase "correct duration" $ durationOf animation @?= 6
+                   ,testProperty "function of time only" $
+                        checkAnimationCorrectness
+                            (0::Float)
+                            (\t x → if
+                                | t < 1 → x == t
+                                | t >= 1 && t < 4 → x == 1-(t-1)/3
+                                | otherwise → x == (t-4)**2
+                            )
+                            animation
+                   ]
+            ,testGroup "3-tuple" $
+                [testGroup "finite length" $
+                    let animation :: Animation Float (Float,Float,Float)
+                        animation = serial
+                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
+                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
+                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
                             ]
-                        )
-                ,testGroup "3-tuple" $
-                    [testProperty "finite length" $
-                        checkAnimationCorrectness
-                            (0::Float,0::Float,0::Float)
-                            (\t (x,y,z) → if
-                                | t < 2 → x == t
-                                | t >= 2 && t < 3 → x == 2 && y == (t-2)**2
-                                | otherwise → x == 2 && y == 1 && z == (t-3)**3
-                            )
-                            (serial
-                                [cachelessAnimation (2::Float) (\t → (_1 .~ t))
-                                ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
-                                ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
-                                ]
-                            )
-                    ,testProperty "zero length" $
-                        checkAnimationCorrectness
-                            (0::Float,0::Float,0::Float)
-                            (\t (x,y,z) →
-                                if t < 2
-                                    then x == t
-                                    else x == 2 && y == 1 && z == (t-2)**3
-                            )
-                            (serial
-                                [cachelessAnimation (2::Float) (\t → (_1 .~ t))
-                                ,cachelessAnimation (0::Float) (\_ → (_2 .~ 1))
-                                ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
-                                ]
-                            )
-                    ]
+                    in [testCase "correct duration" $ durationOf animation @?= 6
+                       ,testProperty "finite length" $
+                            checkAnimationCorrectness
+                                (0::Float,0::Float,0::Float)
+                                (\t (x,y,z) → if
+                                    | t < 2 → x == t
+                                    | t >= 2 && t < 3 → x == 2 && y == (t-2)**2
+                                    | otherwise → x == 2 && y == 1 && z == (t-3)**3
+                                )
+                                animation
+                       ]
+                ,testGroup "zero length" $
+                    let animation :: Animation Float (Float,Float,Float)
+                        animation = serial
+                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
+                            ,cachelessAnimation (0::Float) (\_ → (_2 .~ 1))
+                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
+                            ]
+                    in [testCase "correct duration" $ durationOf animation @?= 5
+                       ,testProperty "zero length" $
+                            checkAnimationCorrectness
+                                (0::Float,0::Float,0::Float)
+                                (\t (x,y,z) →
+                                    if t < 2
+                                        then x == t
+                                        else x == 2 && y == 1 && z == (t-2)**3
+                                )
+                                animation
+                       ]
                 ]
             ]
         ]
