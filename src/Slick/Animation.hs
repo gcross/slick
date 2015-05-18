@@ -36,74 +36,33 @@ runAnimation t state Animation{..} =
 runAnimationState :: α → β → Animation α β → β
 runAnimationState = fst .** runAnimation
 
-data AnimationZipper α β = AnimationZipper
-    { zipperLeft :: [Animation α β]
-    , zipperRight :: [Animation α β]
-    , zipperCurrent :: Animation α β
-    , zipperLeftTime :: α
-    }
+data Side = LeftSide | RightSide
 
-moveLeft :: Num α ⇒ β → AnimationZipper α β → (β, AnimationZipper α β)
-moveLeft state zipper@AnimationZipper{zipperLeft=[]} = (state, zipper)
-moveLeft state (AnimationZipper (left:rest) right current left_time) = (new_state, new_zipper)
-  where
-    new_state = case current of
-                    Animation{..} →
-                        fst $ animationFunction left_time
-                                                state
-                                                animationCache
-    new_zipper =
-        AnimationZipper
-        { zipperLeft = rest
-        , zipperRight = current:right
-        , zipperCurrent = left
-        , zipperLeftTime = left_time - durationOf left
-        }
-
-moveRight :: Num α ⇒ β → AnimationZipper α β → (β, AnimationZipper α β)
-moveRight state zipper@AnimationZipper{zipperRight=[]} = (state, zipper)
-moveRight state (AnimationZipper left (right:rest) current left_time) = (new_state, new_zipper)
-  where
-    new_state = case current of Animation{..} → fst $ animationFunction animationDuration state animationCache
-    new_zipper =
-        AnimationZipper
-        { zipperLeft = current:left
-        , zipperRight = rest
-        , zipperCurrent = right
-        , zipperLeftTime = left_time + durationOf current
-        }
-
-serial :: (Num α, Ord α) ⇒ [Animation α β] → Animation α β
 serial [] = null_animation
-serial animations@(first:rest) = Animation{..}
+serial [animation] = animation
+serial animations = serial $ merge animations
   where
-    animationDuration = sum . map durationOf $ animations
-    animationCache = AnimationZipper{..}
+    merge [] = []
+    merge [x] = [x]
+    merge (x:y:rest) = Animation{..}:merge rest
       where
-        zipperLeft = []
-        zipperRight = rest
-        zipperCurrent = first
-        zipperLeftTime = 0
+        duration_of_x = durationOf x
 
-    animationFunction time state zipper@AnimationZipper{..}
-      -- Clamp the time to zero from below.
-      | time < 0 =
-          animationFunction 0 state zipper
-      -- Clamp the time to the sum of the start and duration of the
-      -- last animation from above.
-      | time > zipperLeftTime + durationOf zipperCurrent && null zipperRight =
-          animationFunction (zipperLeftTime + durationOf zipperCurrent) state zipper
-      | time < zipperLeftTime =
-          assert (not . null $ zipperLeft) $ -- internal invariant
-          uncurry (animationFunction time) (moveLeft state zipper)
-      | time >= zipperLeftTime + durationOf zipperCurrent && (not . null) zipperRight =
-          assert (not . null $ zipperRight) $ -- internal invariant
-          uncurry (animationFunction time) (moveRight state zipper)
-      | otherwise = (new_state, new_zipper)
-      where
-          (new_state, new_animation) =
-              runAnimation (time - zipperLeftTime) state zipperCurrent
-          new_zipper = zipper{zipperCurrent=new_animation}
+        animationDuration = duration_of_x + durationOf y
+        animationCache = (x,y,LeftSide)
+        animationFunction time state (x,y,last_side)
+          | time < duration_of_x =
+                let (new_state,new_x) = runAnimation time state x
+                in (new_state,(new_x,y,LeftSide))
+          | otherwise =
+                case last_side of
+                    LeftSide →
+                        let (new_state,new_x) = runAnimation duration_of_x state x
+                            (final_state,new_y) = runAnimation (time - durationOf x) new_state y
+                        in (final_state,(new_x,new_y,RightSide))
+                    RightSide →
+                        let (new_state,new_y) = runAnimation (time - durationOf x) state y
+                        in (new_state,(x,new_y,RightSide))
 
 type ParallelCache α β = [Animation α β]
 
