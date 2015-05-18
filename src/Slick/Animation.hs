@@ -64,8 +64,6 @@ serial animations = serial $ merge animations
                         let (new_state,new_y) = runAnimation (time - durationOf x) state y
                         in (new_state,(x,new_y,RightSide))
 
-type ParallelCache α β = [Animation α β]
-
 parallel :: (Num α, Ord α) ⇒ [Animation α β] → Animation α β
 parallel [] = null_animation
 parallel animations = Animation animationDuration animationCache animationFunction -- (Animation{..})
