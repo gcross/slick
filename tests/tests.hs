@@ -126,20 +126,36 @@ tests =
                             ,cachelessAnimation (2::Float) (\t _ → t**2)
                             ]
                         )
-                ,testProperty "3-tuple" $
-                    checkAnimationCorrectness
-                        (0::Float,0::Float,0::Float)
-                        (\t (x,y,z) → if
-                            | t < 2 → x == t
-                            | t >= 2 && t < 3 → x == 2 && y == (t-2)**2
-                            | otherwise → x == 2 && y == 1 && z == (t-3)**3
-                        )
-                        (serial
-                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
-                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
-                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
-                            ]
-                        )
+                ,testGroup "3-tuple" $
+                    [testProperty "finite length" $
+                        checkAnimationCorrectness
+                            (0::Float,0::Float,0::Float)
+                            (\t (x,y,z) → if
+                                | t < 2 → x == t
+                                | t >= 2 && t < 3 → x == 2 && y == (t-2)**2
+                                | otherwise → x == 2 && y == 1 && z == (t-3)**3
+                            )
+                            (serial
+                                [cachelessAnimation (2::Float) (\t → (_1 .~ t))
+                                ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
+                                ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
+                                ]
+                            )
+                    ,testProperty "zero length" $
+                        checkAnimationCorrectness
+                            (0::Float,0::Float,0::Float)
+                            (\t (x,y,z) →
+                                if t < 2
+                                    then x == t
+                                    else x == 2 && y == 1 && z == (t-2)**3
+                            )
+                            (serial
+                                [cachelessAnimation (2::Float) (\t → (_1 .~ t))
+                                ,cachelessAnimation (0::Float) (\_ → (_2 .~ 1))
+                                ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
+                                ]
+                            )
+                    ]
                 ]
             ]
         ]
@@ -180,12 +196,12 @@ tests =
                     (0::Float,0::Float,0::Float)
                     (\t (x,y,z) →
                         and [if t <= 1 then x == t else x == 1
-                            ,y == t**2
+                            ,y == 1
                             ,if t <= 2 then z == t**3 else z == 8
                             ])
                     (parallel
                         [cachelessAnimation 1  (\t → (_1 .~ t))
-                        ,cachelessAnimation 3  (\t → (_2 .~ t**2))
+                        ,cachelessAnimation 0  (\t → (_2 .~ 1))
                         ,cachelessAnimation 2  (\t → (_3 .~ t**3))
                         ]
                     )
