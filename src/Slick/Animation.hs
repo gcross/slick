@@ -9,31 +9,31 @@ import Control.Exception (assert)
 import Data.Composition ((.**))
 import Data.List (mapAccumL)
 
-data Animation α β = ∀ ɣ. Animation
-    { animationDuration :: α
+data Animation t s = ∀ ɣ. Animation
+    { animationDuration :: t
     , animationCache :: ɣ
-    , animationFunction :: α → (β → ɣ → (β, ɣ))
+    , animationFunction :: t → (s → ɣ → (s, ɣ))
     }
 
-null_animation :: Num α ⇒ Animation α β
+null_animation :: Num t ⇒ Animation t s
 null_animation = Animation 0 () (\_ x y → (x,y))
 
-cachelessAnimation :: α → (α → β → β) → Animation α β
+cachelessAnimation :: t → (t → s → s) → Animation t s
 cachelessAnimation duration function = Animation duration () (\t x () → (function t x, ()))
 
-statelessAnimation :: α → (α → α) → Animation α α
+statelessAnimation :: t → (t → t) → Animation t t
 statelessAnimation duration function = Animation duration () (\t _ () → (function t, ()))
 
-durationOf :: Animation α β → α
+durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
 
-runAnimation :: α → β → Animation α β → (β, Animation α β)
+runAnimation :: t → s → Animation t s → (s, Animation t s)
 runAnimation t state Animation{..} =
     (new_state, Animation animationDuration new_cache animationFunction)
   where
     (new_state, new_cache) = animationFunction t state animationCache
 
-runAnimationState :: α → β → Animation α β → β
+runAnimationState :: t → s → Animation t s → s
 runAnimationState = fst .** runAnimation
 
 data Side = LeftSide | RightSide
@@ -64,7 +64,7 @@ serial animations = serial $ merge animations
                         let (new_state,new_y) = runAnimation (time - durationOf x) state y
                         in (new_state,(x,new_y,RightSide))
 
-parallel :: (Num α, Ord α) ⇒ [Animation α β] → Animation α β
+parallel :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
 parallel [] = null_animation
 parallel animations = Animation animationDuration animationCache animationFunction -- (Animation{..})
   where
