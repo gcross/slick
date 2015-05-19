@@ -1,10 +1,13 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.Animation where
 
 import Control.Exception (assert)
+import Control.Lens (Iso',(^.),from,iso)
 
 import Data.Composition ((.**))
 import Data.List (mapAccumL)
@@ -14,6 +17,23 @@ data Animation t s = ∀ ɣ. Animation
     , animationCache :: ɣ
     , animationFunction :: t → (s → ɣ → (s, ɣ))
     }
+
+narrowingAnimation :: Iso' s s' → Iso' (Animation t s) (Animation t s')
+narrowingAnimation aniso =
+    iso (\case
+          Animation{..} →
+            let newAnimationFunction t s' c = (s_new ^. aniso,c_new)
+                  where
+                    (s_new,c_new) = animationFunction t (s' ^. from aniso) c
+            in Animation animationDuration animationCache newAnimationFunction
+        )
+        (\case
+          Animation{..} →
+            let newAnimationFunction t s c = (s'_new ^. from aniso,c_new)
+                  where
+                    (s'_new,c_new) = animationFunction t (s ^. aniso) c
+            in Animation animationDuration animationCache newAnimationFunction
+        )
 
 null_animation :: Num t ⇒ Animation t s
 null_animation = Animation 0 () (\_ x y → (x,y))
