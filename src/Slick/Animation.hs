@@ -7,7 +7,7 @@
 module Slick.Animation where
 
 import Control.Exception (assert)
-import Control.Lens (Iso',(^.),from,iso)
+import Control.Lens (Lens',(^.),set)
 
 import Data.Composition ((.**))
 import Data.List (mapAccumL)
@@ -18,22 +18,14 @@ data Animation t s = ∀ ɣ. Animation
     , animationFunction :: t → (s → ɣ → (s, ɣ))
     }
 
-narrowingAnimation :: Iso' s s' → Iso' (Animation t s) (Animation t s')
-narrowingAnimation aniso =
-    iso (\case
-          Animation{..} →
-            let newAnimationFunction t s' c = (s_new ^. aniso,c_new)
-                  where
-                    (s_new,c_new) = animationFunction t (s' ^. from aniso) c
-            in Animation animationDuration animationCache newAnimationFunction
-        )
-        (\case
-          Animation{..} →
-            let newAnimationFunction t s c = (s'_new ^. from aniso,c_new)
-                  where
-                    (s'_new,c_new) = animationFunction t (s ^. aniso) c
-            in Animation animationDuration animationCache newAnimationFunction
-        )
+promoteAnimation :: Lens' s s' → Animation α s' → Animation α s
+promoteAnimation alens Animation{..} =
+    Animation animationDuration animationCache newAnimationFunction
+  where
+    newAnimationFunction t s c = (s_new,c_new)
+      where
+        (s'_new,c_new) = animationFunction t (s ^. alens) c
+        s_new = set alens s'_new s
 
 null_animation :: Num t ⇒ Animation t s
 null_animation = Animation 0 () (\_ x y → (x,y))
