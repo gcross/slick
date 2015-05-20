@@ -11,10 +11,13 @@ Library
     HS-source-dirs:  src
     Exposed-modules:
         Slick.Animation
+        Slick.AnimationM
     Build-depends:
         base,
         composition == 1.0.*,
-        lens == 4.9.*
+        lens == 4.9.*,
+        time == 1.5.*,
+        transformers == 0.4.*
 
 Test-suite tests
     Type: exitcode-stdio-1.0
