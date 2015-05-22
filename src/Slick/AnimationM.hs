@@ -1,10 +1,5 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.AnimationM where
@@ -18,6 +13,7 @@ import Data.Functor (fmap)
 import Data.Time.Clock (DiffTime)
 
 import Slick.Animation
+import Slick.Interpolation
 
 data AnimationMState t s = AnimationMState
     { animationMTime :: t
@@ -39,14 +35,11 @@ within alens action = do
         (animationMAnimations old_state `DList.append` fmap (promoteAnimation alens) (animationMAnimations new_state))
     return result
 
-class Interpolatable t s where
-    interpolateUnitInterval :: s → s → t → s
-
-instance (t ~ s, Num t) ⇒ Interpolatable t s where
-    interpolateUnitInterval start end t = start*(1-t) + end*t
-
-ease :: (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → Animation t s
-ease transition lens duration start end =
-    cachelessAnimation
-        duration
-        (set lens . interpolateUnitInterval start end . transition . (/ duration))
+easeTo :: ∀ t s s'. (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
+easeTo transition lens duration end = do
+    AnimationMState old_duration old_state old_animations ← get
+    let start = old_state ^. lens
+        animation :: Animation t s
+        animation = easeAnimation transition lens duration start end
+        new_state = set lens end old_state
+    put $ AnimationMState (old_duration+duration) new_state (old_animations `DList.snoc` animation)

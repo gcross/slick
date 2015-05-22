@@ -12,6 +12,7 @@ Library
     Exposed-modules:
         Slick.Animation
         Slick.AnimationM
+        Slick.Interpolation
     Build-depends:
         base,
         composition == 1.0.*,
