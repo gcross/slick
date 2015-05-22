@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
@@ -35,11 +36,22 @@ within alens action = do
         (animationMAnimations old_state `DList.append` fmap (promoteAnimation alens) (animationMAnimations new_state))
     return result
 
-easeTo :: ∀ t s s'. (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
-easeTo transition lens duration end = do
+easeFromTo :: ∀ t s s'. (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → AnimationM t s ()
+easeFromTo transition lens duration start end = do
     AnimationMState old_duration old_state old_animations ← get
-    let start = old_state ^. lens
-        animation :: Animation t s
+    let animation :: Animation t s
         animation = easeAnimation transition lens duration start end
         new_state = set lens end old_state
     put $ AnimationMState (old_duration+duration) new_state (old_animations `DList.snoc` animation)
+
+easeTo :: ∀ t s s'. (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
+easeTo transition lens duration end = do
+    AnimationMState{animationMState} ← get
+    easeFromTo transition lens duration (animationMState ^. lens) end
+
+easeBy :: ∀ t s s'. (Fractional t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
+easeBy transition lens duration difference = do
+    AnimationMState{animationMState} ← get
+    let start = animationMState ^. lens
+        end = start + difference
+    easeFromTo transition lens duration start end
