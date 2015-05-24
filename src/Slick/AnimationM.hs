@@ -2,7 +2,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
@@ -19,7 +18,6 @@ import Data.Functor (fmap)
 import Data.Time.Clock (DiffTime)
 
 import Slick.Animation
-import Slick.Interpolation
 
 data CombinationMode = Serial | Parallel
 
@@ -67,7 +65,7 @@ updateTimeAndDurationWithDuration new =
 
 type AnimationM t s = State (AnimationMState t s)
 
-within :: ∀ t s s' α. Timelike t ⇒ Lens' s s' → AnimationM t s' α → AnimationM t s α
+within :: Timelike t ⇒ Lens' s s' → AnimationM t s' α → AnimationM t s α
 within alens action = do
     old_state ← get
     let (result,new_state) =
@@ -86,39 +84,19 @@ within alens action = do
 appendAnimation :: Animation t s → AnimationM t s ()
 appendAnimation = (ams_animations %=) . flip DList.snoc
 
-easeFromTo :: ∀ t s s'. (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → AnimationM t s ()
-easeFromTo transition lens duration start end = do
-    let animation :: Animation t s
-        animation = easeAnimation transition lens duration start end
-        duration = durationOf animation
-    appendAnimation animation
-    ams_state %= set lens end
-    updateTimeAndDurationWithDuration duration
-    appendAnimation animation
-
-easeTo :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
-easeTo transition lens duration end = do
-    start ← use (ams_state . lens)
-    easeFromTo transition lens duration start end
-
-easeBy :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
-easeBy transition lens duration difference = do
-    start ← use (ams_state . lens)
-    let end = start + difference
-    easeFromTo transition lens duration start end
-
-in_ :: Timelike t ⇒ CombinationMode → AnimationM t s α → AnimationM t s α
-in_ combination_mode action = do
-    old_state ← get
-    let starting_state =
+runAnimationMIn :: Timelike t ⇒ CombinationMode → AnimationM t s () → s → Animation t s
+runAnimationMIn combination_mode action initial_state = animation
+  where
+    (_,final_animation_state) =
+        runState action $
             AnimationMState
                 combination_mode
-                (old_state ^. ams_duration)
-                (old_state ^. ams_time)
-                (old_state ^. ams_state)
-                (DList.empty)
-        (value,new_state) = runState action starting_state
-        new_animation = combineAnimationsUsing combination_mode (DList.toList $ starting_state ^. ams_animations)
-    updateTimeAndDurationWithDuration (durationOf new_animation)
-    appendAnimation new_animation
-    return value
+                0
+                0
+                initial_state
+                DList.empty
+    animation =
+        combineAnimationsUsing
+            combination_mode
+            (DList.toList $ final_animation_state ^. ams_animations)
+
