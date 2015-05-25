@@ -25,22 +25,27 @@ import Slick.Animation
 import Slick.AnimationM
 import Slick.Transition
 
-testForNullAnimationWithCombiner combiner =
-    case combiner [] of
-        Animation{..} →
-            testProperty "length 0" $ \(t::Int) (x::Int) →
-                fst (animationFunction t x animationCache) == x
-
-testLength1Group combiner = testGroup "length 1" $
-    [testCase "correct duration" $
-        durationOf (combiner [test_animation]) @=? 1
-    ,testProperty "correct behavior" $ \x → do
-        t ← choose (0,1)
-        return $ runAnimationState (combiner [test_animation]) t x == t+x
-    ]
-  where
-    test_animation :: Animation Int Int
-    test_animation = cachelessAnimation 1 (\t x → t+x)
+testAnimationsEqual :: (Eq t, Num t, Random t, Show t, Eq s, Show s) ⇒ String → s → Animation t s → Animation t s → Test.Framework.Test
+testAnimationsEqual label initial_state correct_animation actual_animation =
+    testGroup label
+        [testCase "same duration" $
+            durationOf correct_animation @=? durationOf actual_animation
+        ,testProperty "same behavior" . property $
+            let go _ _ _ _ [] = return True
+                go state previous_correct_animation previous_actual_animation past_reversed (t:future) = do
+                    let times = t:reverse past_reversed
+                        message = printf "After times %s got incorrect state %s != %s."
+                            (intercalate ", " (map show times))
+                            (show new_actual_state)
+                            (show new_correct_state)
+                        (new_correct_state, new_correct_animation) = runAnimation correct_animation t state
+                        (new_actual_state, new_actual_animation) = runAnimation correct_animation t state
+                    assertEqual message new_actual_state new_correct_state
+                    go new_correct_state new_correct_animation new_actual_animation (t:past_reversed) future
+            in listOf (choose (0, durationOf correct_animation))
+               >>=
+               return . ioProperty . go initial_state correct_animation actual_animation []
+        ]
 
 checkAnimationCorrectness ::
     (Num α, Random α, Show α, Show β) ⇒
@@ -63,11 +68,14 @@ checkAnimationCorrectness initial_state correctState animation = property $
         assertBool message (correctState t new_state)
         go new_state new_animation (t:past_reversed) future
 
+test_animation :: Animation Int Int
+test_animation = cachelessAnimation 1 (\t x → t+x)
+
 tests =
     [testGroup "Slick.Animation"
         [testGroup "serial"
-            [testForNullAnimationWithCombiner serial
-            ,testLength1Group serial
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Int Int) (serial [])
+            ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
             ,testGroup "length 2" $
                 [testGroup "function of time only" $
                     let animation :: Animation Float Float
@@ -156,8 +164,8 @@ tests =
                 ]
             ]
         ,testGroup "parallel"
-            [testForNullAnimationWithCombiner parallel
-            ,testLength1Group parallel
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Int Int) (parallel [])
+            ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
             ,testGroup "length 2" $
                 [testCase "correct duration" $
                     durationOf
