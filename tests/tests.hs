@@ -164,10 +164,12 @@ tests =
                     durationOf (runAnimationMIn Parallel (return ()) ()) @?= 0
                 ]
             ,testGroup "single animation"
-                [testCase "serial" $
-                    durationOf (runAnimationMIn Serial (return ()) ()) @?= 0
-                ,testCase "parallel" $
-                    durationOf (runAnimationMIn Parallel (return ()) ()) @?= 0
+                [testAnimationsEqual "serial" (0::Float)
+                    test_animation
+                    (runAnimationMIn Serial (appendAnimation test_animation) (0::Float))
+                ,testAnimationsEqual "parallel" (0::Float)
+                    test_animation
+                    (runAnimationMIn Parallel (appendAnimation test_animation) (0::Float))
                 ]
             ]
         ]
