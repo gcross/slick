@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
-module Slick.Interpolation where
+module Slick.Transition where
 
 import Control.Lens (Lens',(%=),set,use)
 
@@ -26,25 +26,21 @@ easeAnimation transition lens duration start end =
 
 type Transition t = t → t
 
-
 easeFromTo :: ∀ t s s'. (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → AnimationM t s ()
-easeFromTo transition lens duration start end = do
-    let animation :: Animation t s
-        animation = easeAnimation transition lens duration start end
-        duration = durationOf animation
-    appendAnimation animation
-    ams_state %= set lens end
-    updateTimeAndDurationWithDuration duration
-    appendAnimation animation
+easeFromTo transition lens duration start end = appendAnimation animation
+  where
+    animation :: Animation t s
+    animation = easeAnimation transition lens duration start end
+    duration = durationOf animation
 
 easeTo :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
 easeTo transition lens duration end = do
-    start ← use (ams_state . lens)
+    start ← use lens
     easeFromTo transition lens duration start end
 
 easeBy :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
 easeBy transition lens duration difference = do
-    start ← use (ams_state . lens)
+    start ← use lens
     let end = start + difference
     easeFromTo transition lens duration start end
 

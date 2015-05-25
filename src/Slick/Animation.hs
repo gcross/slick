@@ -39,13 +39,13 @@ statelessAnimation duration function = Animation duration () (\t _ () → (funct
 durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
 
-runAnimation :: t → s → Animation t s → (s, Animation t s)
-runAnimation t state Animation{..} =
+runAnimation :: Animation t s → t → s → (s, Animation t s)
+runAnimation Animation{..} t state =
     (new_state, Animation animationDuration new_cache animationFunction)
   where
     (new_state, new_cache) = animationFunction t state animationCache
 
-runAnimationState :: t → s → Animation t s → s
+runAnimationState :: Animation t s → t → s → s
 runAnimationState = fst .** runAnimation
 
 data Side = LeftSide | RightSide
@@ -64,16 +64,16 @@ serial animations = serial $ merge animations
         animationCache = (x,y,LeftSide)
         animationFunction time state (x,y,last_side)
           | time < duration_of_x =
-                let (new_state,new_x) = runAnimation time state x
+                let (new_state,new_x) = runAnimation x time state
                 in (new_state,(new_x,y,LeftSide))
           | otherwise =
                 case last_side of
                     LeftSide →
-                        let (new_state,new_x) = runAnimation duration_of_x state x
-                            (final_state,new_y) = runAnimation (time - durationOf x) new_state y
+                        let (new_state,new_x) = runAnimation x duration_of_x state
+                            (final_state,new_y) = runAnimation y (time - durationOf x) new_state
                         in (final_state,(new_x,new_y,RightSide))
                     RightSide →
-                        let (new_state,new_y) = runAnimation (time - durationOf x) state y
+                        let (new_state,new_y) = runAnimation y (time - durationOf x) state
                         in (new_state,(x,new_y,RightSide))
 
 parallel :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
@@ -91,7 +91,7 @@ parallel animations = Animation animationDuration animationCache animationFuncti
           mapAccumL
             (\state animation@Animation{..} →
                 let clamped_time = if time > animationDuration then animationDuration else time
-                in runAnimation clamped_time state animation
+                in runAnimation animation clamped_time state
             )
             state
             list
