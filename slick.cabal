@@ -13,6 +13,8 @@ Library
         Slick.Animation
         Slick.AnimationM
         Slick.Transition
+    Other-modules:
+        Slick.AnimationM.Internal
     Build-depends:
         base,
         composition == 1.0.*,
