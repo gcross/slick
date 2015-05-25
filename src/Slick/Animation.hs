@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UnicodeSyntax #-}
@@ -27,14 +28,21 @@ promoteAnimation alens Animation{..} =
         (s'_new,c_new) = animationFunction t (s ^. alens) c
         s_new = set alens s'_new s
 
+clampAnimation :: (Num t, Ord t) ⇒ Animation t s → Animation t s
+clampAnimation (Animation duration cache f) =
+  Animation duration cache $ \t s c →
+    if | t < 0 → f 0 s c
+       | t > duration → f duration s c
+       | otherwise → f t s c
+
 null_animation :: Num t ⇒ Animation t s
 null_animation = Animation 0 () (\_ x y → (x,y))
 
-cachelessAnimation :: t → (t → s → s) → Animation t s
-cachelessAnimation duration function = Animation duration () (\t x () → (function t x, ()))
+cachelessAnimation :: (Num t, Ord t) ⇒ t →  (t → s → s) → Animation t s
+cachelessAnimation duration function = clampAnimation $ Animation duration () (\t x () → (function t x, ()))
 
-statelessAnimation :: t → (t → t) → Animation t t
-statelessAnimation duration function = Animation duration () (\t _ () → (function t, ()))
+statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t
+statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
 
 durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
@@ -51,7 +59,7 @@ runAnimationState = fst .** runAnimation
 data Side = LeftSide | RightSide
 
 serial [] = null_animation
-serial [animation] = animation
+serial [animation] = clampAnimation animation
 serial animations = serial $ merge animations
   where
     merge [] = []

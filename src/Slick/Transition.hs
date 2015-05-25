@@ -18,7 +18,7 @@ class Interpolatable t s where
 instance (t ~ s, Num t) ⇒ Interpolatable t s where
     interpolateUnitInterval t start end = start*(1-t) + end*t
 
-easeAnimation :: (Fractional t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → Animation t s
+easeAnimation :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → Animation t s
 easeAnimation transition lens duration start end =
     cachelessAnimation
         duration
