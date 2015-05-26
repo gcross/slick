@@ -65,8 +65,8 @@ appendAnimation animation = do
     ams_state %= fst . (runAnimation animation animation_duration)
     ams_animations %= (flip DList.snoc animation)
 
-runAnimationMIn :: Timelike t ⇒ CombinationMode → InnerAnimationM t s () → s → Animation t s
-runAnimationMIn combination_mode action initial_state = animation
+runAnimationMIn :: Timelike t ⇒ CombinationMode → s-> InnerAnimationM t s () → Animation t s
+runAnimationMIn combination_mode initial_state action = animation
   where
     (_,final_animation_state) =
         runState action $

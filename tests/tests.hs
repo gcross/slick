@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
-import Control.Lens (_1, _2, _3, (.~))
+import Control.Lens (_1, _2, _3, (.~), (%~), simple)
 
 import Data.List (intercalate)
 import Data.Function (on)
@@ -62,6 +62,15 @@ testAnimationsEqual label initial_state correct_animation actual_animation =
 
 test_animation :: Animation Float Float
 test_animation = cachelessAnimation 1 (\t x → t+x)
+
+test_animation2 :: Animation Float Float
+test_animation2 = cachelessAnimation 1 (\t x → t*x)
+
+test_tuple_animation :: Animation Float (Float,Float)
+test_tuple_animation = cachelessAnimation 1 (\t → _1 %~ (+t))
+
+test_tuple_animation2 :: Animation Float (Float,Float)
+test_tuple_animation2 = cachelessAnimation 1 (\t → _2 %~ (*t))
 
 tests =
     [testGroup "Slick.Animation"
@@ -159,19 +168,39 @@ tests =
         [testGroup "runAnimationMIn"
             [testGroup "return ()"
                 [testCase "serial" $
-                    durationOf (runAnimationMIn Serial (return ()) ()) @?= 0
+                    durationOf (runAnimationMIn Serial () (return ())) @?= 0
                 ,testCase "parallel" $
-                    durationOf (runAnimationMIn Parallel (return ()) ()) @?= 0
+                    durationOf (runAnimationMIn Parallel () (return ())) @?= 0
                 ]
             ,testGroup "single animation"
                 [testAnimationsEqual "serial" (0::Float)
                     test_animation
-                    (runAnimationMIn Serial (appendAnimation test_animation) (0::Float))
+                    (runAnimationMIn Serial (0::Float) (appendAnimation test_animation))
                 ,testAnimationsEqual "parallel" (0::Float)
                     test_animation
-                    (runAnimationMIn Parallel (appendAnimation test_animation) (0::Float))
+                    (runAnimationMIn Parallel (0::Float) (appendAnimation test_animation) )
+                ]
+            ,testGroup "two animations"
+                [testAnimationsEqual "serial" (0::Float)
+                    (serial [test_animation,test_animation2])
+                    (runAnimationMIn Serial (0::Float) $ do
+                        appendAnimation test_animation
+                        appendAnimation test_animation2
+                    )
+                ,testAnimationsEqual "parallel" (0::Float,0::Float)
+                    (parallel [test_tuple_animation,test_tuple_animation2])
+                    (runAnimationMIn Parallel (0::Float,0::Float) $ do
+                        appendAnimation test_tuple_animation
+                        appendAnimation test_tuple_animation2
+                    )
                 ]
             ]
         ]
+    ,testGroup "Slick.Transition"
+        [testAnimationsEqual "linearFromTo" (0::Float)
+            (statelessAnimation (2::Float) $ \t → t)
+            (runAnimationMIn Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
+        ]
     ]
+
 main = defaultMain tests

@@ -16,10 +16,10 @@ class Interpolatable t s where
     interpolateUnitInterval :: s → s → t → s
 
 instance (t ~ s, Num t) ⇒ Interpolatable t s where
-    interpolateUnitInterval t start end = start*(1-t) + end*t
+    interpolateUnitInterval start end t = start*(1-t) + end*t
 
 easeAnimation :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → Animation t s
-easeAnimation transition lens duration start end =
+easeAnimation transition lens duration start end = clampAnimation $
     cachelessAnimation
         duration
         (set lens . interpolateUnitInterval start end . transition . (/duration))
@@ -31,7 +31,6 @@ easeFromTo transition lens duration start end = appendAnimation animation
   where
     animation :: Animation t s
     animation = easeAnimation transition lens duration start end
-    duration = durationOf animation
 
 easeTo :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → AnimationM t s ()
 easeTo transition lens duration end = do
@@ -44,22 +43,51 @@ easeBy transition lens duration difference = do
     let end = start + difference
     easeFromTo transition lens duration start end
 
+linear_transition :: Transition t
 linear_transition = id
+
+linearFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → AnimationM t s ()
 linearFromTo = easeFromTo linear_transition
+
+linearTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → AnimationM t s ()
 linearTo = easeTo linear_transition
+
+linearBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → AnimationM t s ()
 linearBy = easeBy linear_transition
 
+smooth_transition :: (Floating t, Timelike t) ⇒ Transition t
 smooth_transition t = sin(pi*t/2)**2
-smoothFromTo = easeFromTo smooth_transition
-smoothTo = easeTo smooth_transition
-smoothBy = easeBy smooth_transition
 
+smoothFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → AnimationM t s ()
+smoothFromTo = easeFromTo linear_transition
+
+smoothTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → AnimationM t s ()
+smoothTo = easeTo linear_transition
+
+smoothBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → AnimationM t s ()
+smoothBy = easeBy linear_transition
+
+decelerate_transition :: (Floating t, Timelike t) ⇒ Transition t
 decelerate_transition t = sin(pi*t/2)
+
+decelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → AnimationM t s ()
 decelerateFromTo = easeFromTo decelerate_transition
+
+decelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → AnimationM t s ()
 decelerateTo = easeTo decelerate_transition
+
+decelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → AnimationM t s ()
 decelerateBy = easeBy decelerate_transition
 
+accelerate_transition :: (Floating t, Timelike t) ⇒ Transition t
 accelerate_transition t = 1-sin(pi*t/2)
+
+accelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → AnimationM t s ()
 accelerateFromTo = easeFromTo accelerate_transition
+
+accelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → AnimationM t s ()
 accelerateTo = easeTo accelerate_transition
+
+accelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → AnimationM t s ()
 accelerateBy = easeBy accelerate_transition
+

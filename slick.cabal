@@ -19,7 +19,7 @@ Library
         base,
         composition == 1.0.*,
         dlist == 0.7.*,
-        lens == 4.9.*,
+        lens >= 4.9 && < 5,
         mtl == 2.2.*,
         time == 1.5.*,
         transformers == 0.4.*
@@ -32,9 +32,9 @@ Test-suite tests
         slick,
         base,
         HUnit == 1.2.*,
-        lens == 4.9.*,
+        lens >= 4.9 && < 5,
         random == 1.*,
         test-framework == 0.8.*,
         test-framework-hunit == 0.3.*,
         test-framework-quickcheck2 == 0.3.*,
-        QuickCheck == 2.7.*
+        QuickCheck >= 2.7 && < 3
