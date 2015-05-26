@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
-module Slick.AnimationM.Internal where
+module Slick.Presentation.Internal where
 
 import Control.Applicative ((<$>),(<*>))
 import Control.Lens (Lens',(&),(^.),(.~),(.=),(%=),(<%=),set,use,view)
@@ -23,29 +23,29 @@ import Slick.Animation
 
 data CombinationMode = Serial | Parallel
 
-data AnimationMState t s = AnimationMState
-    { _ams_combination_mode :: CombinationMode
-    , _ams_duration :: t
-    , _ams_time :: t
-    , _ams_state :: s
-    , _ams_animations :: DList (Animation t s)
+data PresentationState t s = PresentationState
+    { _p_combination_mode :: CombinationMode
+    , _p_duration :: t
+    , _p_time :: t
+    , _p_state :: s
+    , _p_animations :: DList (Animation t s)
     }
-makeLenses ''AnimationMState
+makeLenses ''PresentationState
 
-newtype AnimationM t s α = AnimationM {unwrapAnimationM :: InnerAnimationM t s α}
+newtype Presentation t s α = Presentation {unwrapPresentation :: InnerPresentation t s α}
   deriving (Applicative,Functor,Monad)
 
-type InnerAnimationM t s = State (AnimationMState t s)
+type InnerPresentation t s = State (PresentationState t s)
 
-instance Num t ⇒ State.MonadState s (AnimationM t s) where
-    get = AnimationM $ use ams_state
-    put s = AnimationM $ ams_state .= s
-    state act = AnimationM $ state act'
+instance Num t ⇒ State.MonadState s (Presentation t s) where
+    get = Presentation $ use p_state
+    put s = Presentation $ p_state .= s
+    state act = Presentation $ state act'
       where
         act' old_state = (value, new_state)
           where
-            (value, new_state') = act (old_state ^. ams_state)
-            new_state = AnimationMState Serial 0 0 new_state' DList.empty
+            (value, new_state') = act (old_state ^. p_state)
+            new_state = PresentationState Serial 0 0 new_state' DList.empty
 
 type Timelike t = (Fractional t, Ord t)
 
@@ -53,24 +53,24 @@ combineAnimationsUsing :: Timelike t ⇒ CombinationMode → [Animation t s] →
 combineAnimationsUsing Serial = serial
 combineAnimationsUsing Parallel = parallel
 
-appendAnimation :: Timelike t ⇒ Animation t s → InnerAnimationM t s ()
+appendAnimation :: Timelike t ⇒ Animation t s → InnerPresentation t s ()
 appendAnimation animation = do
-    combination_mode ← use ams_combination_mode
+    combination_mode ← use p_combination_mode
     let animation_duration = durationOf animation
-    ams_duration %=
+    p_duration %=
         case combination_mode of
             Serial → (+) animation_duration
             Parallel → max animation_duration
-    ams_time %= (+ animation_duration)
-    ams_state %= fst . (runAnimation animation animation_duration)
-    ams_animations %= (flip DList.snoc animation)
+    p_time %= (+ animation_duration)
+    p_state %= fst . (runAnimation animation animation_duration)
+    p_animations %= (flip DList.snoc animation)
 
-runAnimationMIn :: Timelike t ⇒ CombinationMode → s-> InnerAnimationM t s () → Animation t s
-runAnimationMIn combination_mode initial_state action = animation
+runPresentationIn :: Timelike t ⇒ CombinationMode → s-> InnerPresentation t s () → Animation t s
+runPresentationIn combination_mode initial_state action = animation
   where
     (_,final_animation_state) =
         runState action $
-            AnimationMState
+            PresentationState
                 combination_mode
                 0
                 0
@@ -79,19 +79,19 @@ runAnimationMIn combination_mode initial_state action = animation
     animation =
         combineAnimationsUsing
             combination_mode
-            (DList.toList $ final_animation_state ^. ams_animations)
+            (DList.toList $ final_animation_state ^. p_animations)
 
-within :: Timelike t ⇒ Lens' s s' → InnerAnimationM t s' α → InnerAnimationM t s α
+within :: Timelike t ⇒ Lens' s s' → InnerPresentation t s' α → InnerPresentation t s α
 within lens action = do
     old_state ← get
     let (result,new_state) =
             runState
                 action
                 (old_state{
-                    _ams_state=old_state ^. ams_state . lens,
-                    _ams_animations=DList.empty
+                    _p_state=old_state ^. p_state . lens,
+                    _p_animations=DList.empty
                 })
     appendAnimation . promoteAnimation lens $
-        combineAnimationsUsing (old_state ^. ams_combination_mode) (DList.toList $ new_state ^. ams_animations)
+        combineAnimationsUsing (old_state ^. p_combination_mode) (DList.toList $ new_state ^. p_animations)
     return result
 

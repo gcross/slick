@@ -11,10 +11,10 @@ Library
     HS-source-dirs:  src
     Exposed-modules:
         Slick.Animation
-        Slick.AnimationM
+        Slick.Presentation
         Slick.Transition
     Other-modules:
-        Slick.AnimationM.Internal
+        Slick.Presentation.Internal
     Build-depends:
         base,
         composition == 1.0.*,
