@@ -53,8 +53,8 @@ runAnimation Animation{..} t state =
   where
     (new_state, new_cache) = animationFunction t state animationCache
 
-runAnimationState :: Animation t s → t → s → s
-runAnimationState = fst .** runAnimation
+execAnimation :: Animation t s → t → s → s
+execAnimation = fst .** runAnimation
 
 data Side = LeftSide | RightSide
 

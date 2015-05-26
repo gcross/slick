@@ -11,6 +11,7 @@ Library
     HS-source-dirs:  src
     Exposed-modules:
         Slick.Animation
+        Slick.Animation.Monad
         Slick.Presentation
         Slick.Transition
     Other-modules:
