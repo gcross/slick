@@ -37,9 +37,11 @@ newtype Presentation t s α = Presentation {unwrapPresentation :: InnerPresentat
 
 type InnerPresentation t s = State (PresentationState t s)
 
-instance Num t ⇒ State.MonadState s (Presentation t s) where
+instance Timelike t ⇒ State.MonadState s (Presentation t s) where
     get = Presentation $ use p_state
-    put s = Presentation $ p_state .= s
+    put s = Presentation $ do
+        appendAnimation $ zeroTimeAnimation s
+        p_state .= s
     state act = Presentation $ state act'
       where
         act' old_state = (value, new_state)

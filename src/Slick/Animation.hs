@@ -44,6 +44,9 @@ cachelessAnimation duration function = clampAnimation $ Animation duration () (\
 statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t
 statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
 
+zeroTimeAnimation :: (Num t, Ord t) ⇒ s → Animation t s
+zeroTimeAnimation new_state = cachelessAnimation 0 (const . const $ new_state)
+
 durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
 
