@@ -19,7 +19,7 @@ data Animation t s = ∀ ɣ. Animation
     , animationFunction :: t → (s → ɣ → (s, ɣ))
     }
 
-promoteAnimation :: Lens' s s' → Animation α s' → Animation α s
+promoteAnimation :: Lens' s s' → Animation t s' → Animation t s
 promoteAnimation alens Animation{..} =
     Animation animationDuration animationCache newAnimationFunction
   where
