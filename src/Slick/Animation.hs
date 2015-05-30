@@ -59,33 +59,68 @@ runAnimation Animation{..} t state =
 execAnimation :: Animation t s → t → s → s
 execAnimation = fst .** runAnimation
 
-data Side = LeftSide | RightSide
+data AnimationZipper t s = AnimationZipper
+    { zipperLeft :: [Animation t s]
+    , zipperRight :: [Animation t s]
+    , zipperCurrent :: Animation t s
+    , zipperLeftTime :: t
+    }
 
-serial [] = null_animation
-serial [animation] = clampAnimation animation
-serial animations = serial $ merge animations
+moveLeft :: Num t ⇒ s → AnimationZipper t s → (s, AnimationZipper t s)
+moveLeft state zipper@AnimationZipper{zipperLeft=[]} = (state, zipper)
+moveLeft state (AnimationZipper (left:rest) right current left_time) = (new_state, new_zipper)
   where
-    merge [] = []
-    merge [x] = [x]
-    merge (x:y:rest) = Animation{..}:merge rest
-      where
-        duration_of_x = durationOf x
+    new_state = case current of
+                    Animation{..} →
+                        fst $ animationFunction left_time
+                                                state
+                                                animationCache
+    new_zipper =
+        AnimationZipper
+        { zipperLeft = rest
+        , zipperRight = current:right
+        , zipperCurrent = left
+        , zipperLeftTime = left_time - durationOf left
+        }
 
-        animationDuration = duration_of_x + durationOf y
-        animationCache = (x,y,LeftSide)
-        animationFunction time state (x,y,last_side)
-          | time < duration_of_x =
-                let (new_state,new_x) = runAnimation x time state
-                in (new_state,(new_x,y,LeftSide))
-          | otherwise =
-                case last_side of
-                    LeftSide →
-                        let (new_state,new_x) = runAnimation x duration_of_x state
-                            (final_state,new_y) = runAnimation y (time - durationOf x) new_state
-                        in (final_state,(new_x,new_y,RightSide))
-                    RightSide →
-                        let (new_state,new_y) = runAnimation y (time - durationOf x) state
-                        in (new_state,(x,new_y,RightSide))
+moveRight :: Num t ⇒ s → AnimationZipper t s → (s, AnimationZipper t s)
+moveRight state zipper@AnimationZipper{zipperRight=[]} = (state, zipper)
+moveRight state (AnimationZipper left (right:rest) current left_time) = (new_state, new_zipper)
+  where
+    new_state = case current of Animation{..} → fst $ animationFunction animationDuration state animationCache
+    new_zipper =
+        AnimationZipper
+        { zipperLeft = current:left
+        , zipperRight = rest
+        , zipperCurrent = right
+        , zipperLeftTime = left_time + durationOf current
+        }
+
+serial :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
+serial [] = null_animation
+serial animations@(first:rest) = clampAnimation $ Animation{..}
+  where
+    animationDuration = sum . map durationOf $ animations
+
+    animationCache = AnimationZipper{..}
+      where
+        zipperLeft = []
+        zipperRight = rest
+        zipperCurrent = first
+        zipperLeftTime = 0
+
+    animationFunction time state zipper@AnimationZipper{..}
+      | time < zipperLeftTime =
+          assert (not . null $ zipperLeft) $ -- internal invariant
+          uncurry (animationFunction time) (moveLeft state zipper)
+      | time >= zipperLeftTime + durationOf zipperCurrent && (not . null) zipperRight =
+          assert (not . null $ zipperRight) $ -- internal invariant
+          uncurry (animationFunction time) (moveRight state zipper)
+      | otherwise = (new_state, new_zipper)
+      where
+          (new_state, new_animation) =
+              runAnimation zipperCurrent (time - zipperLeftTime) state
+          new_zipper = zipper{zipperCurrent=new_animation}
 
 parallel :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
 parallel [] = null_animation
