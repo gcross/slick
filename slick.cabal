@@ -39,3 +39,17 @@ Test-suite tests
         test-framework-hunit == 0.3.*,
         test-framework-quickcheck2 == 0.3.*,
         QuickCheck >= 2.7 && < 3
+
+Executable display
+    Main-is: display.hs
+    Build-depends:
+        slick,
+        base,
+        diagrams == 1.*,
+        diagrams-cairo == 1.*,
+        diagrams-gtk == 1.*,
+        diagrams-lib == 1.*,
+        gtk == 0.13.*,
+        lens >= 4.9 && < 5,
+        time == 1.5.*,
+        transformers == 0.4.*

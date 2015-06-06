@@ -3,15 +3,17 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.Animation where
 
 import Control.Exception (assert)
-import Control.Lens (Lens',(^.),set)
+import Control.Lens (Lens',(^.),makeLenses,set)
 
 import Data.Composition ((.**))
 import Data.List (mapAccumL)
+import Data.IORef (IORef, readIORef, writeIORef)
 
 data Animation t s = ∀ ɣ. Animation
     { animationDuration :: t
@@ -44,9 +46,6 @@ cachelessAnimation duration function = clampAnimation $ Animation duration () (\
 statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t
 statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
 
-zeroTimeAnimation :: (Num t, Ord t) ⇒ s → Animation t s
-zeroTimeAnimation new_state = cachelessAnimation 0 (const . const $ new_state)
-
 durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
 
@@ -58,6 +57,24 @@ runAnimation Animation{..} t state =
 
 execAnimation :: Animation t s → t → s → s
 execAnimation = fst .** runAnimation
+
+data AnimationAndState t s = AnimationAndState
+    { _as_animation :: Animation t s
+    , _as_state :: s
+    }
+makeLenses ''AnimationAndState
+
+runAnimationAndState :: AnimationAndState t s → t → AnimationAndState t s
+runAnimationAndState old t = AnimationAndState new_animation new_state
+  where
+    (new_state, new_animation) = runAnimation (old ^. as_animation) t (old ^. as_state)
+
+runAnimationAndStateInIORef :: IORef (AnimationAndState t s) → t → IO s
+runAnimationAndStateInIORef ref t = do
+    old ← readIORef ref
+    let new = runAnimationAndState old t
+    writeIORef ref new
+    return (new ^. as_state)
 
 data AnimationZipper t s = AnimationZipper
     { zipperLeft :: [Animation t s]
