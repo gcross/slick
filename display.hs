@@ -23,6 +23,14 @@ import Slick.Transition
 
 import Debug.Trace
 
+
+data Circle = Circle
+    {   _cx :: Double
+    ,   _cy :: Double
+    ,   _cr :: Double
+    }
+makeLenses ''Circle
+
 main :: IO ()
 main = do
     initial_time ← getCurrentTime
@@ -33,12 +41,11 @@ main = do
     set window [ containerBorderWidth := 10,
                  containerChild := canvas ]
     animation_and_state_ref ← newIORef $
-        (execPresentationIn Serial 50 $ do
-            linearBy simple 2 100
-            smoothBy simple 2 (-100)
-            accelerateTo simple 2 (-100)
-            decelerateTo simple 2 (100)
-         :: AnimationAndState Double Double)
+        (execPresentationIn Parallel (Circle 50 50 50) $ do
+            smoothBy cy 2 100
+            smoothByFactor cr 2 0.5
+            smoothBy cx 2 100
+         :: AnimationAndState Double Circle)
     canvas `on` exposeEvent $ renderFigure animation_and_state_ref initial_time 
     onDestroy window mainQuit
     widgetShowAll window
@@ -46,7 +53,7 @@ main = do
     timeoutAddFull tickHandler priorityDefaultIdle 30
     mainGUI
 
-renderFigure :: IORef (AnimationAndState Double Double) → UTCTime → EventM EExpose Bool
+renderFigure :: IORef (AnimationAndState Double Circle) → UTCTime → EventM EExpose Bool
 renderFigure animation_and_state_ref initial_time = do
     current_time ← liftIO getCurrentTime
     let dt :: NominalDiffTime
@@ -58,5 +65,5 @@ renderFigure animation_and_state_ref initial_time = do
     liftIO $ renderToGtk win $ figure current_radius
     return True
 
-figure :: Double → Diagram Cairo
-figure radius = unitCircle # scale 50 # translateY 50 # translateX radius
+figure :: Circle → Diagram Cairo
+figure c = unitCircle # scale (c ^. cr) # translateX (c ^. cx) # translateY (c ^. cy)
