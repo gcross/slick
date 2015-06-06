@@ -49,8 +49,14 @@ easeByFactor transition lens duration factor = do
     let end = start * factor
     easeFromTo transition lens duration start end
 
-linear_transition :: Transition t
-linear_transition = id
+clampTransition :: Timelike t ⇒ Transition t → Transition t
+clampTransition transition t
+  | t < 0 = 0
+  | t > 1 = 1
+  | otherwise = transition t
+
+linear_transition :: Timelike t ⇒ Transition t
+linear_transition = clampTransition $ id
 
 linearFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
 linearFromTo = easeFromTo linear_transition
@@ -64,8 +70,8 @@ linearBy = easeBy linear_transition
 linearByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
 linearByFactor = easeByFactor linear_transition
 
-smooth_transition :: (Timelike t) ⇒ Transition t
-smooth_transition t = sin(pi*t/2)**2
+smooth_transition :: Timelike t ⇒ Transition t
+smooth_transition = clampTransition $ \t → sin(pi*t/2)**2
 
 smoothFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
 smoothFromTo = easeFromTo smooth_transition
@@ -79,8 +85,8 @@ smoothBy = easeBy smooth_transition
 smoothByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
 smoothByFactor = easeByFactor smooth_transition
 
-decelerate_transition :: (Timelike t) ⇒ Transition t
-decelerate_transition t = sin(pi*t/2)
+decelerate_transition :: Timelike t ⇒ Transition t
+decelerate_transition = clampTransition $ \t → sin(pi*t/2)
 
 decelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
 decelerateFromTo = easeFromTo decelerate_transition
@@ -94,8 +100,8 @@ decelerateBy = easeBy decelerate_transition
 decelerateByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
 decelerateByFactor = easeByFactor decelerate_transition
 
-accelerate_transition :: (Timelike t) ⇒ Transition t
-accelerate_transition t = 1-sin(pi*t/2)
+accelerate_transition :: Timelike t ⇒ Transition t
+accelerate_transition = clampTransition $ \t → 1-cos(pi*t/2)
 
 accelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
 accelerateFromTo = easeFromTo accelerate_transition

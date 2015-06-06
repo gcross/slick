@@ -14,6 +14,7 @@ import Control.Lens.TH (makeLenses)
 import qualified Control.Monad.State as State
 import Control.Monad.Trans.State (State,get,execState,put,runState,state)
 
+import Data.Composition ((.**))
 import Data.DList (DList)
 import qualified Data.DList as DList
 import Data.Functor (fmap)
@@ -68,10 +69,10 @@ appendAnimation animation = do
     p_state %= fst . (runAnimation animation animation_duration)
     p_animations %= (flip DList.snoc animation)
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s () → Animation t s
-runPresentationIn combination_mode initial_state action = animation
+runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → (α, AnimationAndState t s)
+runPresentationIn combination_mode initial_state action = (final_value, AnimationAndState animation initial_state)
   where
-    (_,final_animation_state) =
+    (final_value,final_animation_state) =
         runState action $
             PresentationState
                 combination_mode
@@ -84,10 +85,11 @@ runPresentationIn combination_mode initial_state action = animation
             combination_mode
             (DList.toList $ final_animation_state ^. p_animations)
 
-runPresentationIn' :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s () → AnimationAndState t s
-runPresentationIn' combination_mode initial_state action = AnimationAndState animation initial_state
-  where
-    animation = runPresentationIn combination_mode initial_state action
+execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → AnimationAndState t s
+execPresentationIn = snd .** runPresentationIn
+
+execPresentationIn' :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → Animation t s
+execPresentationIn' = (^. as_animation) .** execPresentationIn
 
 within :: Timelike t ⇒ Lens' s s' → InnerPresentation t s' α → InnerPresentation t s α
 within lens action = do

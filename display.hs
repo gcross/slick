@@ -5,19 +5,23 @@ module Main where
 
 import Control.Lens (makeLenses)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.State
 
 import Data.IORef
 import Data.Time.Clock
 
 import Diagrams.Backend.Cairo
 import Diagrams.Backend.Gtk
-import Diagrams.Prelude hiding (Animation, radius, set)
+import Diagrams.Prelude hiding (Animation, radius, set, trace)
 
-import Graphics.UI.Gtk hiding (Circle)
+import Graphics.UI.Gtk hiding (Circle, get)
 
 import Slick.Animation
 import Slick.Presentation
 import Slick.Transition
+
+
+import Debug.Trace
 
 main :: IO ()
 main = do
@@ -29,11 +33,11 @@ main = do
     set window [ containerBorderWidth := 10,
                  containerChild := canvas ]
     animation_and_state_ref ← newIORef $
-        (runPresentationIn' Serial 50 $ do
-            -- smoothBy simple 2 50
-            -- smoothBy simple 2 (-50)
-            accelerateTo simple 2 (-50)
-            decelerateTo simple 2 50
+        (execPresentationIn Serial 50 $ do
+            linearBy simple 2 100
+            smoothBy simple 2 (-100)
+            accelerateTo simple 2 (-100)
+            decelerateTo simple 2 (100)
          :: AnimationAndState Double Double)
     canvas `on` exposeEvent $ renderFigure animation_and_state_ref initial_time 
     onDestroy window mainQuit

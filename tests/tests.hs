@@ -72,6 +72,27 @@ test_tuple_animation = cachelessAnimation 1 (\t → _1 %~ (+t))
 test_tuple_animation2 :: Animation Float (Float,Float)
 test_tuple_animation2 = cachelessAnimation 1 (\t → _2 %~ (*t))
 
+testTransition :: String → (Float → Float) → Bool → Test.Framework.Test
+testTransition label transition check_bounds =
+    testGroup label $
+        [testCase "Correct left endpoint" $ transition 0 @?= 0
+        ,testCase "Correct right endpoint" $ transition 1 @?= 1
+        ] ++
+        if check_bounds
+            then
+                [testProperty "Within bounds" $ do
+                    t ← choose (-0.25,1.25)
+                    let tt = transition t
+                        is_valid =
+                            if | t <= 0 → tt == 0
+                               | t >= 1 → tt == 1
+                               | otherwise → tt >= 0 && tt <= 1
+                    if is_valid
+                        then return True
+                        else error $ "At time " ++ show t ++ " transition had value " ++ show tt
+                ]
+            else []
+
 tests =
     [testGroup "Slick.Animation"
         [testGroup "serial"
@@ -165,31 +186,31 @@ tests =
             ]
         ]
     ,testGroup "Slick.Presentation"
-        [testGroup "runPresentationIn"
+        [testGroup "execPresentationIn'"
             [testGroup "return ()"
                 [testCase "serial" $
-                    durationOf (runPresentationIn Serial () (return ())) @?= 0
+                    durationOf (execPresentationIn' Serial () (return ())) @?= 0
                 ,testCase "parallel" $
-                    durationOf (runPresentationIn Parallel () (return ())) @?= 0
+                    durationOf (execPresentationIn' Parallel () (return ())) @?= 0
                 ]
             ,testGroup "single animation"
                 [testAnimationsEqual "serial" (0::Float)
                     test_animation
-                    (runPresentationIn Serial (0::Float) (appendAnimation test_animation))
+                    (execPresentationIn' Serial (0::Float) (appendAnimation test_animation))
                 ,testAnimationsEqual "parallel" (0::Float)
                     test_animation
-                    (runPresentationIn Parallel (0::Float) (appendAnimation test_animation) )
+                    (execPresentationIn' Parallel (0::Float) (appendAnimation test_animation) )
                 ]
             ,testGroup "two animations"
                 [testAnimationsEqual "serial" (0::Float)
                     (serial [test_animation,test_animation2])
-                    (runPresentationIn Serial (0::Float) $ do
+                    (execPresentationIn' Serial (0::Float) $ do
                         appendAnimation test_animation
                         appendAnimation test_animation2
                     )
                 ,testAnimationsEqual "parallel" (0::Float,0::Float)
                     (parallel [test_tuple_animation,test_tuple_animation2])
-                    (runPresentationIn Parallel (0::Float,0::Float) $ do
+                    (execPresentationIn' Parallel (0::Float,0::Float) $ do
                         appendAnimation test_tuple_animation
                         appendAnimation test_tuple_animation2
                     )
@@ -197,9 +218,15 @@ tests =
             ]
         ]
     ,testGroup "Slick.Transition"
-        [testAnimationsEqual "linearFromTo" (0::Float)
+        [testGroup "transitions"
+            [testTransition "linear" linear_transition True
+            ,testTransition "smooth" smooth_transition True
+            ,testTransition "accelerate" accelerate_transition True
+            ,testTransition "decelerate" decelerate_transition True
+            ]
+        ,testAnimationsEqual "linearFromTo" (0::Float)
             (statelessAnimation (2::Float) $ \t → t)
-            (runPresentationIn Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
+            (execPresentationIn' Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
         ]
     ]
 

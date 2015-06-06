@@ -51,5 +51,6 @@ Executable display
         diagrams-lib == 1.*,
         gtk == 0.13.*,
         lens >= 4.9 && < 5,
+        mtl == 2.2.*,
         time == 1.5.*,
         transformers == 0.4.*
