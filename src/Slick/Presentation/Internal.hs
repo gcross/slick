@@ -105,3 +105,18 @@ within lens action = do
         combineAnimationsUsing (old_state ^. p_combination_mode) (DList.toList $ new_state ^. p_animations)
     return result
 
+in_ :: Timelike t ⇒ CombinationMode → InnerPresentation t s α → InnerPresentation t s α
+in_ combination_mode action = do
+    old_state ← get
+    let (result,new_state) =
+            runState
+                action
+                (old_state{
+                    _p_combination_mode=combination_mode,
+                    _p_duration=0,
+                    _p_state=old_state ^. p_state,
+                    _p_animations=DList.empty
+                })
+    appendAnimation $
+        combineAnimationsUsing combination_mode (DList.toList $ new_state ^. p_animations)
+    return result

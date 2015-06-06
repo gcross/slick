@@ -42,9 +42,11 @@ main = do
                  containerChild := canvas ]
     animation_and_state_ref ← newIORef $
         (execPresentationIn Parallel (Circle 50 50 50) $ do
-            smoothBy cy 2 100
-            smoothByFactor cr 2 0.5
-            smoothBy cx 2 100
+            in_ Serial $ do
+                smoothByFactor cr 2 0.5
+                in_ Parallel $ do
+                    smoothBy cx 2 100
+                    smoothBy cy 2 100
          :: AnimationAndState Double Circle)
     canvas `on` exposeEvent $ renderFigure animation_and_state_ref initial_time 
     onDestroy window mainQuit

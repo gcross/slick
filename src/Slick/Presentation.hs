@@ -10,6 +10,7 @@ module Slick.Presentation
     ,execPresentationIn
     ,execPresentationIn'
     ,within
+    ,in_
     )
     where
 
@@ -22,6 +23,7 @@ import Slick.Presentation.Internal hiding
     ,execPresentationIn
     ,execPresentationIn'
     ,within
+    ,in_
     )
 import qualified Slick.Presentation.Internal as Internal
 
@@ -42,3 +44,6 @@ execPresentationIn' combination_mode initial_state =
 
 within :: Timelike t ⇒ Lens' s s' → Presentation t s' α → Presentation t s α
 within lens (Presentation action) = Presentation $ Internal.within lens action
+
+in_ :: Timelike t ⇒ CombinationMode → Presentation t s α → Presentation t s α
+in_ combination_mode (Presentation action) = Presentation $ Internal.in_ combination_mode action
