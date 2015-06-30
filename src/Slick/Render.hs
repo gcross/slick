@@ -150,7 +150,6 @@ viewDocument document@Document{..} = do
             image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
             cairo_context ← c_cairo_create image_surface
             c_rsvg_handle_render_cairo rsvg_handle cairo_context
-            c_cairo_destroy cairo_context
 
             image_surface_ptr ← c_cairo_image_surface_get_data image_surface
             surface ← createRGBSurfaceFrom image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0
@@ -158,6 +157,7 @@ viewDocument document@Document{..} = do
             texture ← createTextureFromSurface renderer surface
             errorWhen "Create texture" (surface == nullPtr)
             freeSurface surface
+            c_cairo_destroy cairo_context
 
             SDL.setRenderDrawColor renderer 255 255 255 255
 
