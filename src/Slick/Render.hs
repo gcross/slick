@@ -66,6 +66,8 @@ foreign import ccall "cairo_image_surface_create_for_data" c_cairo_image_surface
 foreign import ccall "cairo_create" c_cairo_create :: CairoSurface → IO CairoContext
 foreign import ccall "cairo_destroy" c_cairo_destroy :: CairoContext → IO ()
 foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_data :: CairoSurface → IO (Ptr ())
+foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
+foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
 
 errorWhen _ False = return ()
 errorWhen label True = do
@@ -149,6 +151,8 @@ viewDocument document@Document{..} = do
 
             image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
             cairo_context ← c_cairo_create image_surface
+            c_cairo_set_source_rgb cairo_context 1 1 1
+            c_cairo_paint cairo_context
             c_rsvg_handle_render_cairo rsvg_handle cairo_context
 
             image_surface_ptr ← c_cairo_image_surface_get_data image_surface
@@ -158,8 +162,6 @@ viewDocument document@Document{..} = do
             errorWhen "Create texture" (surface == nullPtr)
             freeSurface surface
             c_cairo_destroy cairo_context
-
-            SDL.setRenderDrawColor renderer 255 255 255 255
 
             retcode ← renderCopy renderer texture nullPtr nullPtr
             errorWhen "Copy renderer" (retcode /= 0)
