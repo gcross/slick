@@ -14,6 +14,7 @@ Library
         Slick.Animation.Monad
         Slick.Presentation
         Slick.Render
+        Slick.SVG
         Slick.Transition
     Other-modules:
         Slick.Presentation.Internal
