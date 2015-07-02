@@ -59,5 +59,6 @@ Executable example
     Build-depends:
         slick,
         base,
+        containers == 0.5.*,
         data-default == 0.5.*,
         xml-conduit == 1.3.*

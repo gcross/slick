@@ -2,56 +2,94 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.SVG where
 
-import qualified Data.Map as Map
-import Data.Text (Text,pack)
+import Control.Lens (makeLenses, to)
+import Control.Monad (forM_)
+import Control.Monad.Trans.State.Strict (execState,get,put)
 
-import Text.Printf (printf)
+import Data.Attoparsec.Text (Parser, choice, double, endOfInput, parseOnly, string)
+import qualified Data.Map as Map
+import Data.Map (Map)
+import Data.Maybe (fromMaybe)
+import Data.Monoid ((<>))
+import qualified Data.Set as Set
+import Data.Set (Set)
+import Data.Text (Text,pack,unpack)
+
 import Text.XML (Document(..),Element(..),Name(..),Node(..),Prologue(..))
 
 import Slick.Transition (Interpolatable(..))
+
+parseSize :: Element → Text → Double
+parseSize Element{..} name =
+    case parseOnly size_parser (fromMaybe (error $ unpack name ++" field does not exist.") $ Map.lookup (Name name Nothing Nothing) elementAttributes) of
+        Left _ → error $ "Invalid format for the " ++ unpack name ++ " attribute."
+        Right result → result
+
+size_parser :: Parser Double
+size_parser =
+    (*) <$> double
+        <*> choice
+                [string "pt" >> return 1.25
+                ,string "pc" >> return 1.5
+                ,string "mm" >> return 3.543307
+                ,string "cm" >> return 35.43307
+                ,string "in" >> return 90
+                ,endOfInput >> return 1
+                ]
+
 
 data Header = Header
     {   headerWidth :: Double
     ,   headerHeight :: Double
     }
 
-svg :: Header → Element → Document
-svg Header{..} element =
+extractHeader :: Document → Header
+extractHeader Document{..} =
+    Header
+        (parseSize documentRoot "width")
+        (parseSize documentRoot "height")
+
+svg :: Header → [Element] → Document
+svg Header{..} elements =
     Document
         (Prologue [] Nothing [])
         (Element
             (mkName "svg")
             (Map.fromList
-                [("xmlns",svgns)
+                [("xmlns","http://www.w3.org/2000/svg")
+                ,("xmlns:xlink","http://www.w3.org/1999/xlink")
+                ,("version","1.1")
                 ,("width",pack . show $ headerWidth)
                 ,("height",pack . show $ headerHeight)
+                ,("viewBox",pack $ "0 0 " ++ show headerWidth ++ " " ++ show headerHeight)
                 ]
             )
-            [NodeElement element]
+            (map NodeElement elements)
         )
         []
-
-svgns :: Text
-svgns = "http://www.w3.org/2000/svg"
-
--- svgName :: Text → Name
--- svgName name = Name name (Just svgns) Nothing
 
 mkName :: Text → Name
 mkName name = Name name Nothing Nothing
 
-defs :: [Element] → Element
-defs = Element (mkName "defs") Map.empty . map NodeElement
+mkDefs :: [Element] → Element
+mkDefs = Element (mkName "defs") Map.empty . map NodeElement
 
 extractElementsFromSVG :: Document → [Element]
 extractElementsFromSVG Document{documentRoot=Element{..}} = [element | NodeElement element ← elementNodes]
 
+mkDefsFromSVG :: Document → Element
+mkDefsFromSVG = mkDefs . extractElementsFromSVG
+
 extractElementsFromAllSVG :: [Document] → [Element]
 extractElementsFromAllSVG = concat . map extractElementsFromSVG
+
+mkDefsFromAllSVG :: [Document] → Element
+mkDefsFromAllSVG = mkDefs . extractElementsFromAllSVG
 
 data Scale =
     PropScale Double
@@ -69,31 +107,63 @@ instance Interpolatable Double Scale where
         error "Must interpolate between the same kind of scale.  (Not from NonPropScale to PropScale.)"
 
 data Use = Use
-    {   useId :: Text
-    ,   useRotation :: Double
-    ,   useScale :: Scale
-    ,   useX :: Double
-    ,   useY :: Double
+    {   useId
+    ,   useParentTransform :: Text
+    ,   _rotation_angle :: Double
+    ,   _rotation_x :: Double
+    ,   _rotation_y :: Double
+    ,   _scale :: Scale
+    ,   _x :: Double
+    ,   _y :: Double
     } deriving (Eq,Ord,Read,Show)
 
-newUse :: Text → Use
-newUse use_id = Use use_id 0 (PropScale 1) 0 0
+makeLenses ''Use
+
+mkUse :: Text → Text → Use
+mkUse use_id parent_transform = Use use_id parent_transform 0 0 0 (PropScale 1) 0 0
 
 use :: Use → Element
 use Use{..} =
     Element
         (mkName "use")
-        (Map.singleton "transform"
-         .
-         pack
-         $
-         printf "rotate(%d)scale(%s)translate(%d %d)"
-            useRotation
-            (case useScale of
-                PropScale scale → show scale
-                NonPropScale x y → show x ++ " " ++ show y
-            )
-            useX
-            useY
+        (Map.fromList
+            [(mkName "transform",transform)
+            ,("xlink:href","#" <> useId)
+            ]
         )
         []
+  where
+    transform =
+        useParentTransform
+        <>
+        (pack $
+            "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")" ++
+            "scale(" ++ (
+                case _scale of
+                    PropScale scale → show scale
+                    NonPropScale x y → show x ++ " " ++ show y
+             ) ++ ")" ++
+             "translate(" ++ show _x ++ " " ++ show _y ++ ")"
+        )
+
+extractElementsForUse :: Document → Set Text → Map Text Use
+extractElementsForUse Document{..} id_set =
+    if not (Set.null remaining_id_set)
+    then error $ "Some ids were not found:" ++ show id_set
+    else id_map
+  where
+    (id_map,remaining_id_set) = flip execState (mempty, id_set) $ goElement mempty documentRoot
+
+    goElement transform Element{..} = do
+        (id_map, remaining_id_set) ← get
+        case Map.lookup "id" elementAttributes of
+            Just id'
+              | Set.member id' remaining_id_set →
+                    put (Map.insert id' (mkUse id' new_transform) id_map, Set.delete id' id_set)
+            _ → return ()
+        forM_ [element | NodeElement element ← elementNodes] $ goElement new_transform
+      where
+        new_transform =
+            case Map.lookup "transform" elementAttributes of
+                Nothing → transform
+                Just new_transform → transform <> new_transform

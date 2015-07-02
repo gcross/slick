@@ -2,13 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Slick.Render where
 
 import Control.Monad (forever,void)
 import Control.Monad.IO.Class (liftIO)
 
-import Data.Attoparsec.Text (Parser, choice, double, endOfInput, parseOnly, string)
 import Data.Bits ((.|.))
 import qualified Data.ByteString as BS
 import Data.Conduit (Consumer, (=$=), await, runConduit)
@@ -47,6 +47,8 @@ import qualified Text.XML as XML
 import Text.XML (Document(..), Element(..), Name(..), renderBytes)
 
 import Unsafe.Coerce (unsafeCoerce)
+
+import Slick.SVG
 
 newtype CairoContext = CairoContext (Ptr ())
 newtype CairoSurface = CairoSurface (Ptr ())
@@ -90,27 +92,9 @@ fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
         then height_f * current_aspect_ratio / correct_aspect_ratio
         else height_f
 
-size_parser :: Parser Double
-size_parser =
-    (*) <$> double
-        <*> choice
-                [string "pt" >> return 1.25
-                ,string "pc" >> return 1.5
-                ,string "mm" >> return 3.543307
-                ,string "cm" >> return 35.43307
-                ,string "in" >> return 90
-                ,endOfInput >> return 1
-                ]
-
 viewDocument document@Document{..} = do
     let Element{..} = documentRoot
-        parseDimension :: Integral α ⇒ Text → IO α
-        parseDimension name =
-            case parseOnly size_parser (fromMaybe (error $ unpack name ++" field does not exist.") $ Map.lookup (Name name Nothing Nothing) elementAttributes) of
-                Left _ → error "Invalid format for the width attribute."
-                Right result → return . fromIntegral . round $ result
-    initial_width ← parseDimension "width"
-    initial_height ← parseDimension "height"
+        Header (round → initial_width) (round → initial_height) = extractHeader document
     let aspect_ratio :: Double
         aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
         current_transform = fromMaybe "" $ Map.lookup (Name "transform" Nothing Nothing) elementAttributes
