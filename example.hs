@@ -4,8 +4,9 @@
 
 module Main where
 
-import Control.Lens (makeLenses,(^.))
+import Control.Lens (makeLenses,(^.),(.~))
 
+import Data.Time.Clock(NominalDiffTime)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -55,5 +56,7 @@ main = do
                 ,use $ logo_state ^. logo_gear
                 ,use $ logo_state ^. logo_gear_tail
                 ]
-        animation_and_state = AnimationAndState null_animation initial_logo_state
+        animation :: Animation NominalDiffTime LogoState
+        animation = cachelessAnimation 100 (\t → logo_the . y .~ 100 * realToFrac t)
+        animation_and_state = AnimationAndState animation initial_logo_state
     viewAnimation animation_and_state renderToDocument

@@ -40,7 +40,7 @@ clampAnimation (Animation duration cache f) =
 null_animation :: Num t ⇒ Animation t s
 null_animation = Animation 0 () (\_ x y → (x,y))
 
-cachelessAnimation :: (Num t, Ord t) ⇒ t →  (t → s → s) → Animation t s
+cachelessAnimation :: (Num t, Ord t) ⇒ t → (t → s → s) → Animation t s
 cachelessAnimation duration function = clampAnimation $ Animation duration () (\t x () → (function t x, ()))
 
 statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t

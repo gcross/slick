@@ -202,8 +202,8 @@ viewDocument document@Document{..} = do
         go
 
 viewAnimation :: AnimationAndState NominalDiffTime s → (s → Document) → IO ()
-viewAnimation animation render = do
-    let animation_and_state_at_0 = runAnimationAndState animation 0
+viewAnimation animation_and_state render = do
+    let animation_and_state_at_0 = runAnimationAndState animation_and_state 0
         document_at_0@Document{..} = render (animation_and_state_at_0 ^. as_state)
         Header (round → initial_width) (round → initial_height) = document_at_0 ^. header
     let aspect_ratio :: Double
