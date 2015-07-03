@@ -38,6 +38,7 @@ import Graphics.UI.SDL
     ,destroyTexture
     ,freeSurface
     ,getError
+    ,hasEvents
     ,keysymKeycode
     ,mkTimerCallback
     ,pushEvent
@@ -45,13 +46,14 @@ import Graphics.UI.SDL
     ,renderCopy
     ,renderPresent
     ,pollEvent
+    ,pumpEvents
     ,quit
     ,setWindowBordered
     ,setWindowSize
     )
 
 import Control.Lens ((^.))
-import Control.Monad (forever)
+import Control.Monad (forever,when)
 
 import Data.Time.Clock (UTCTime)
 import Data.IORef (readIORef,newIORef,writeIORef)
@@ -89,8 +91,6 @@ foreign import ccall "cairo_destroy" c_cairo_destroy :: CairoContext → IO ()
 foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_data :: CairoSurface → IO (Ptr ())
 foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
 foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
-
-foreign import ccall "SlickSetup" c_SlickSetup :: IO ()
 
 errorWhen _ False = return ()
 errorWhen label True = do
@@ -229,8 +229,6 @@ viewAnimation animation_and_state render = do
 
         renderDocument renderer document_at_0
 
-        c_SlickSetup
-
         animation_and_state_ref ← newIORef animation_and_state_at_0
         scale_ref ← newIORef 1
 
@@ -267,28 +265,31 @@ viewAnimation animation_and_state render = do
                 scale ← readIORef scale_ref
                 renderDocument renderer (scaleDocument scale document)
             processEvent = do
-                event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-                putStrLn $ "Next event is " ++ show event
-                case event of
-                    WindowEvent {..} →
-                        case windowEventEvent of
-                            SDL.SDL_WINDOWEVENT_CLOSE → exitSuccess
-                            SDL.SDL_WINDOWEVENT_EXPOSED → redraw
-                            SDL.SDL_WINDOWEVENT_RESIZED → do
-                                let width = windowEventData1
-                                    height = windowEventData2
-                                    (fixed_width, fixed_height) = fixSize aspect_ratio width height
-                                setWindowSize window fixed_width fixed_height
-                                writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
-                                redraw
-                            _ → return ()
-                    KeyboardEvent {..} → putStrLn "Key detected!" >>
-                        case keyboardEventState of
-                            SDL.SDL_PRESSED →
-                                case keysymKeycode keyboardEventKeysym of
-                                    SDL.SDLK_SPACE → toggle
-                                    _ → return ()
-                            _ → return ()
-                    -- _ → return ()
-                    _ → putStrLn . show $ event
+                pumpEvents
+                has_events ← hasEvents SDL.SDL_WINDOWEVENT SDL.SDL_KEYDOWN
+                when has_events $ do
+                    event ← alloca $ \p_event → pollEvent p_event >> peek p_event
+                    putStrLn $ "Next event is " ++ show event
+                    case event of
+                        WindowEvent {..} →
+                            case windowEventEvent of
+                                SDL.SDL_WINDOWEVENT_CLOSE → exitSuccess
+                                SDL.SDL_WINDOWEVENT_EXPOSED → return ()
+                                SDL.SDL_WINDOWEVENT_RESIZED → do
+                                    let width = windowEventData1
+                                        height = windowEventData2
+                                        (fixed_width, fixed_height) = fixSize aspect_ratio width height
+                                    setWindowSize window fixed_width fixed_height
+                                    writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
+                                    redraw
+                                _ → return ()
+                        KeyboardEvent {..} → putStrLn "Key detected!" >>
+                            case keyboardEventState of
+                                SDL.SDL_PRESSED →
+                                    case keysymKeycode keyboardEventKeysym of
+                                        SDL.SDLK_SPACE → toggle
+                                        _ → return ()
+                                _ → return ()
+                        _ → return ()
+                redraw
         forever $ processEvent

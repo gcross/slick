@@ -57,6 +57,6 @@ main = do
                 ,use $ logo_state ^. logo_gear_tail
                 ]
         animation :: Animation NominalDiffTime LogoState
-        animation = cachelessAnimation 100 (\t → logo_the . y .~ 100 * realToFrac t)
+        animation = cachelessAnimation 100 (\t → logo_the . y .~ 20 * realToFrac t)
         animation_and_state = AnimationAndState animation initial_logo_state
     viewAnimation animation_and_state renderToDocument
