@@ -38,6 +38,7 @@ import Graphics.UI.SDL
     ,destroyTexture
     ,freeSurface
     ,getError
+    ,keysymKeycode
     ,mkTimerCallback
     ,pushEvent
     ,renderClear
@@ -50,7 +51,9 @@ import Graphics.UI.SDL
     )
 
 import Control.Lens ((^.))
+import Control.Monad (forever)
 
+import Data.Time.Clock (UTCTime)
 import Data.IORef (readIORef,newIORef,writeIORef)
 
 import Foreign.Marshal.Alloc (alloca)
@@ -58,6 +61,8 @@ import Foreign.Storable (poke)
 
 import qualified Text.XML as XML
 import Text.XML (Document(..), Element(..), Name(..), renderBytes)
+
+import System.Exit
 
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -85,7 +90,7 @@ foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_da
 foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
 foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
 
-foreign import ccall "SlickAddTimer" c_SlickAddTimer :: IO ()
+foreign import ccall "SlickSetup" c_SlickSetup :: IO ()
 
 errorWhen _ False = return ()
 errorWhen label True = do
@@ -203,6 +208,10 @@ viewDocument document@Document{..} = do
                     _ → go
         go
 
+data RunningStatus =
+    Running !UTCTime !NominalDiffTime
+  | Paused !NominalDiffTime
+
 viewAnimation :: AnimationAndState NominalDiffTime s → (s → Document) → IO ()
 viewAnimation animation_and_state render = do
     let animation_and_state_at_0 = runAnimationAndState animation_and_state 0
@@ -212,6 +221,7 @@ viewAnimation animation_and_state render = do
         aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
 
     starting_time ← getCurrentTime
+    running_status_ref ← newIORef $ Running starting_time 0
 
     timer_callback2 ← mkTimerCallback $ \interval _ → return interval
 
@@ -219,27 +229,51 @@ viewAnimation animation_and_state render = do
 
         renderDocument renderer document_at_0
 
-        c_SlickAddTimer
+        c_SlickSetup
 
         animation_and_state_ref ← newIORef animation_and_state_at_0
         scale_ref ← newIORef 1
 
-        let redraw = do
-                current_time ← getCurrentTime
-                let time = current_time `diffUTCTime` starting_time
+        let pause = do
+                running_status ← readIORef running_status_ref
+                case running_status of
+                    Paused _ → return ()
+                    Running starting_time additional_time → do
+                        current_time ← getCurrentTime
+                        writeIORef running_status_ref $
+                            Paused ((current_time `diffUTCTime` starting_time) + additional_time)
+            resume = do
+                running_status ← readIORef running_status_ref
+                case running_status of
+                    Running _ _ → return ()
+                    Paused additional_time → do
+                        current_time ← getCurrentTime
+                        writeIORef running_status_ref $ Running current_time additional_time
+            toggle = do
+                running_status ← readIORef running_status_ref
+                case running_status of
+                    Paused _ → putStrLn "Resuming..." >> resume
+                    Running _ _ → putStrLn "Pausing..." >> pause
+            redraw = do
+                time ← do
+                    running_status ← readIORef running_status_ref
+                    case running_status of
+                        Running starting_time additional_time → do
+                            current_time ← getCurrentTime
+                            return $ (current_time `diffUTCTime` starting_time) + additional_time
+                        Paused additional_time → return additional_time
                 new_state ← runAnimationAndStateInIORef animation_and_state_ref time
                 let document = render new_state
                 scale ← readIORef scale_ref
                 renderDocument renderer (scaleDocument scale document)
-                processEvents
-            processEvents = do
+            processEvent = do
                 event ← alloca $ \p_event → pollEvent p_event >> peek p_event
+                putStrLn $ "Next event is " ++ show event
                 case event of
-                    WindowEvent {..} → do
+                    WindowEvent {..} →
                         case windowEventEvent of
-                            SDL.SDL_WINDOWEVENT_CLOSE → return ()
-                            SDL.SDL_WINDOWEVENT_EXPOSED → do
-                                redraw
+                            SDL.SDL_WINDOWEVENT_CLOSE → exitSuccess
+                            SDL.SDL_WINDOWEVENT_EXPOSED → redraw
                             SDL.SDL_WINDOWEVENT_RESIZED → do
                                 let width = windowEventData1
                                     height = windowEventData2
@@ -247,6 +281,14 @@ viewAnimation animation_and_state render = do
                                 setWindowSize window fixed_width fixed_height
                                 writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
                                 redraw
-                            _ → processEvents
-                    _ → processEvents
-        processEvents
+                            _ → return ()
+                    KeyboardEvent {..} → putStrLn "Key detected!" >>
+                        case keyboardEventState of
+                            SDL.SDL_PRESSED →
+                                case keysymKeycode keyboardEventKeysym of
+                                    SDL.SDLK_SPACE → toggle
+                                    _ → return ()
+                            _ → return ()
+                    -- _ → return ()
+                    _ → putStrLn . show $ event
+        forever $ processEvent
