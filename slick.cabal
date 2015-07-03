@@ -38,6 +38,8 @@ Library
     Extra-libraries:
         cairo,
         rsvg-2
+    C-sources:
+        src/timer.c
 
 Test-suite tests
     Type: exitcode-stdio-1.0

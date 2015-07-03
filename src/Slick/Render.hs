@@ -17,6 +17,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Text (Text, pack, unpack)
+import Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime)
 
 import Foreign.C.String (CString, peekCString, withCString)
 import Foreign.C.Types (CChar(..), CInt(..), CULong(..))
@@ -27,7 +28,9 @@ import Foreign.Storable (peek)
 import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL
     (Event(..)
-    ,Renderer(..)
+    ,Renderer
+    ,Window
+    ,addTimer
     ,createRGBSurfaceFrom
     ,createRenderer
     ,createTextureFromSurface
@@ -35,6 +38,8 @@ import Graphics.UI.SDL
     ,destroyTexture
     ,freeSurface
     ,getError
+    ,mkTimerCallback
+    ,pushEvent
     ,renderClear
     ,renderCopy
     ,renderPresent
@@ -46,11 +51,15 @@ import Graphics.UI.SDL
 
 import Control.Lens ((^.))
 
+import Foreign.Marshal.Alloc (alloca)
+import Foreign.Storable (poke)
+
 import qualified Text.XML as XML
 import Text.XML (Document(..), Element(..), Name(..), renderBytes)
 
 import Unsafe.Coerce (unsafeCoerce)
 
+import Slick.Animation
 import Slick.SVG
 
 newtype CairoContext = CairoContext (Ptr ())
@@ -73,6 +82,8 @@ foreign import ccall "cairo_destroy" c_cairo_destroy :: CairoContext → IO ()
 foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_data :: CairoSurface → IO (Ptr ())
 foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
 foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
+
+foreign import ccall "SlickAddTimer" c_SlickAddTimer :: IO ()
 
 errorWhen _ False = return ()
 errorWhen label True = do
@@ -133,46 +144,104 @@ renderDocument renderer document = do
 
     renderPresent renderer
 
-viewDocument document@Document{..} = do
-    let Element{..} = documentRoot
-        Header (round → initial_width) (round → initial_height) = document ^. header
-    let aspect_ratio :: Double
-        aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
-
-    retcode ← SDL.init SDL.SDL_INIT_VIDEO
+withSDL :: Int → Int → (Window → Renderer → IO α) → IO α
+withSDL initial_width initial_height action = do
+    retcode ← SDL.init (SDL.SDL_INIT_EVERYTHING)
     errorWhen "Init" (retcode /= 0)
 
     window ← withCString "Hello, world!" $ \title →
-        createWindow title 100 100 initial_width initial_height (SDL.SDL_WINDOW_SHOWN .|. SDL.SDL_WINDOW_RESIZABLE)
+        createWindow
+            title
+            100 100
+            (fromIntegral initial_width)
+            (fromIntegral initial_height)
+            (SDL.SDL_WINDOW_SHOWN .|. SDL.SDL_WINDOW_RESIZABLE)
     errorWhen "Create window" (window == nullPtr)
 
     setWindowBordered window True
     renderer ← createRenderer window (-1) SDL.SDL_RENDERER_ACCELERATED
     errorWhen "Create renderer" (renderer == nullPtr)
 
-    renderDocument renderer document
-
-    let go = do
-            event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-            case event of
-                WindowEvent {..} → do
-                    case windowEventEvent of
-                        SDL.SDL_WINDOWEVENT_CLOSE → return ()
-                        SDL.SDL_WINDOWEVENT_RESIZED → do
-                            let width = windowEventData1
-                                height = windowEventData2
-                                (fixed_width, fixed_height) = fixSize aspect_ratio width height
-                            setWindowSize window fixed_width fixed_height
-                            renderDocument
-                                renderer
-                                $
-                                let scale = fromIntegral fixed_width/fromIntegral initial_width
-                                    dx = (scale-1) * fromIntegral initial_width / 2
-                                    dy = (scale-1) * fromIntegral initial_height / 2
-                                in scaleDocument dx dy scale document
-                            go
-                        _ → go
-                _ → go
-    go
+    action_result ← action window renderer
 
     quit
+
+    return action_result
+
+
+viewDocument document@Document{..} = do
+    let Element{..} = documentRoot
+        Header (round → initial_width) (round → initial_height) = document ^. header
+    let aspect_ratio :: Double
+        aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
+
+    withSDL initial_width initial_height $ \window renderer → do
+
+        renderDocument renderer document
+
+        let go = do
+                event ← alloca $ \p_event → pollEvent p_event >> peek p_event
+                case event of
+                    WindowEvent {..} → do
+                        case windowEventEvent of
+                            SDL.SDL_WINDOWEVENT_CLOSE → return ()
+                            SDL.SDL_WINDOWEVENT_RESIZED → do
+                                let width = windowEventData1
+                                    height = windowEventData2
+                                    (fixed_width, fixed_height) = fixSize aspect_ratio width height
+                                setWindowSize window fixed_width fixed_height
+                                renderDocument
+                                    renderer
+                                    $
+                                    scaleDocument
+                                        (fromIntegral fixed_width/fromIntegral initial_width)
+                                        document
+                                go
+                            _ → go
+                    _ → go
+        go
+
+viewAnimation :: AnimationAndState NominalDiffTime s → (s → Document) → IO ()
+viewAnimation animation render = do
+    let animation_and_state_at_0 = runAnimationAndState animation 0
+        document_at_0@Document{..} = render (animation_and_state_at_0 ^. as_state)
+        Header (round → initial_width) (round → initial_height) = document_at_0 ^. header
+    let aspect_ratio :: Double
+        aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
+
+    starting_time ← getCurrentTime
+
+    timer_callback2 ← mkTimerCallback $ \interval _ → return interval
+
+    withSDL initial_width initial_height $ \window renderer → do
+
+        renderDocument renderer document_at_0
+
+        c_SlickAddTimer
+
+        let update scale animation_and_state = do
+                current_time ← getCurrentTime
+                let time = current_time `diffUTCTime` starting_time
+                    new_animation_and_state = runAnimationAndState animation_and_state time
+                    document = render (new_animation_and_state ^. as_state)
+                renderDocument renderer (scaleDocument scale document)
+                go scale new_animation_and_state
+            go scale animation_and_state = do
+                event ← alloca $ \p_event → pollEvent p_event >> peek p_event
+                let go' = go scale animation_and_state
+                case event of
+                    WindowEvent {..} → do
+                        case windowEventEvent of
+                            SDL.SDL_WINDOWEVENT_CLOSE → return ()
+                            SDL.SDL_WINDOWEVENT_EXPOSED → do
+                                update scale animation_and_state
+                            SDL.SDL_WINDOWEVENT_RESIZED → do
+                                let width = windowEventData1
+                                    height = windowEventData2
+                                    (fixed_width, fixed_height) = fixSize aspect_ratio width height
+                                setWindowSize window fixed_width fixed_height
+                                let new_scale = fromIntegral fixed_width/fromIntegral initial_width
+                                update new_scale animation_and_state
+                            _ → go'
+                    _ → go'
+        go 1 animation_and_state_at_0

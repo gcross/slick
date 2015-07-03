@@ -90,8 +90,8 @@ document_root = lens getter setter
 
 root_element_attributes = document_root . element_attributes
 
-scaleDocument :: Double → Double → Double → Document → Document
-scaleDocument dx_ dy_ scale document =
+scaleDocument :: Double → Document → Document
+scaleDocument scale document =
     (header .~ Header (width*scale) (height*scale))
     .
     (document_root . elementAttribute "transform" %~

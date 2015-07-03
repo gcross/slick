@@ -15,6 +15,7 @@ import System.Environment
 
 import qualified Text.XML as XML
 
+import Slick.Animation
 import Slick.Render
 import Slick.SVG
 
@@ -54,4 +55,5 @@ main = do
                 ,use $ logo_state ^. logo_gear
                 ,use $ logo_state ^. logo_gear_tail
                 ]
-    viewDocument $ renderToDocument initial_logo_state
+        animation_and_state = AnimationAndState null_animation initial_logo_state
+    viewAnimation animation_and_state renderToDocument
