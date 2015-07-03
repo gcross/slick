@@ -27,6 +27,7 @@ import Foreign.Storable (peek)
 import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL
     (Event(..)
+    ,Renderer(..)
     ,createRGBSurfaceFrom
     ,createRenderer
     ,createTextureFromSurface
@@ -42,6 +43,8 @@ import Graphics.UI.SDL
     ,setWindowBordered
     ,setWindowSize
     )
+
+import Control.Lens ((^.))
 
 import qualified Text.XML as XML
 import Text.XML (Document(..), Element(..), Name(..), renderBytes)
@@ -92,12 +95,49 @@ fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
         then height_f * current_aspect_ratio / correct_aspect_ratio
         else height_f
 
+renderDocument :: Renderer → Document → IO ()
+renderDocument renderer document = do
+    let Header (round → width) (round → height) = document ^. header
+
+    rsvg_handle ← c_rsvg_handle_new
+    let consumer :: Consumer BS.ByteString IO ()
+        consumer = do
+            mbs ← await
+            case mbs of
+                Nothing → void . liftIO $ c_rsvg_handle_close rsvg_handle
+                Just bs →
+                    (liftIO . BS.useAsCString bs $ \ptr →
+                        c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
+                    >>
+                    consumer
+    runConduit $ renderBytes def document =$= consumer
+    c_rsvg_handle_close rsvg_handle
+
+    image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
+    cairo_context ← c_cairo_create image_surface
+    c_cairo_set_source_rgb cairo_context 1 1 1
+    c_cairo_paint cairo_context
+    c_rsvg_handle_render_cairo rsvg_handle cairo_context
+
+    image_surface_ptr ← c_cairo_image_surface_get_data image_surface
+    surface ← createRGBSurfaceFrom image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0
+
+    texture ← createTextureFromSurface renderer surface
+    errorWhen "Create texture" (surface == nullPtr)
+    freeSurface surface
+    c_cairo_destroy cairo_context
+
+    retcode ← renderCopy renderer texture nullPtr nullPtr
+    errorWhen "Copy renderer" (retcode /= 0)
+    destroyTexture texture
+
+    renderPresent renderer
+
 viewDocument document@Document{..} = do
     let Element{..} = documentRoot
-        Header (round → initial_width) (round → initial_height) = extractHeader document
+        Header (round → initial_width) (round → initial_height) = document ^. header
     let aspect_ratio :: Double
         aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
-        current_transform = fromMaybe "" $ Map.lookup (Name "transform" Nothing Nothing) elementAttributes
 
     retcode ← SDL.init SDL.SDL_INIT_VIDEO
     errorWhen "Init" (retcode /= 0)
@@ -110,50 +150,7 @@ viewDocument document@Document{..} = do
     renderer ← createRenderer window (-1) SDL.SDL_RENDERER_ACCELERATED
     errorWhen "Create renderer" (renderer == nullPtr)
 
-    let renderImage :: Int → Int → IO ()
-        renderImage width height = do
-            let width' = fromIntegral width
-                height' = fromIntegral height
-                scale_factor :: Double
-                scale_factor = fromIntegral width' / fromIntegral initial_width
-                new_transformation = current_transform <> (pack $ "scale(" ++ show scale_factor ++ ")")
-                render_document = document{documentRoot=documentRoot{elementAttributes=Map.insert "transform" new_transformation elementAttributes}}
-
-            rsvg_handle ← c_rsvg_handle_new
-            let consumer :: Consumer BS.ByteString IO ()
-                consumer = do
-                    mbs ← await
-                    case mbs of
-                        Nothing → void . liftIO $ c_rsvg_handle_close rsvg_handle
-                        Just bs →
-                            (liftIO . BS.useAsCString bs $ \ptr →
-                                c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
-                            >>
-                            consumer
-            runConduit $ renderBytes def render_document =$= consumer
-            c_rsvg_handle_close rsvg_handle
-
-            image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
-            cairo_context ← c_cairo_create image_surface
-            c_cairo_set_source_rgb cairo_context 1 1 1
-            c_cairo_paint cairo_context
-            c_rsvg_handle_render_cairo rsvg_handle cairo_context
-
-            image_surface_ptr ← c_cairo_image_surface_get_data image_surface
-            surface ← createRGBSurfaceFrom image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0
-
-            texture ← createTextureFromSurface renderer surface
-            errorWhen "Create texture" (surface == nullPtr)
-            freeSurface surface
-            c_cairo_destroy cairo_context
-
-            retcode ← renderCopy renderer texture nullPtr nullPtr
-            errorWhen "Copy renderer" (retcode /= 0)
-            destroyTexture texture
-
-            renderPresent renderer
-
-    renderImage (fromIntegral initial_width) (fromIntegral initial_height)
+    renderDocument renderer document
 
     let go = do
             event ← alloca $ \p_event → pollEvent p_event >> peek p_event
@@ -166,7 +163,13 @@ viewDocument document@Document{..} = do
                                 height = windowEventData2
                                 (fixed_width, fixed_height) = fixSize aspect_ratio width height
                             setWindowSize window fixed_width fixed_height
-                            renderImage (fromIntegral fixed_width) (fromIntegral fixed_height)
+                            renderDocument
+                                renderer
+                                $
+                                let scale = fromIntegral fixed_width/fromIntegral initial_width
+                                    dx = (scale-1) * fromIntegral initial_width / 2
+                                    dy = (scale-1) * fromIntegral initial_height / 2
+                                in scaleDocument dx dy scale document
                             go
                         _ → go
                 _ → go

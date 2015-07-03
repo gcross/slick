@@ -61,4 +61,5 @@ Executable example
         base,
         containers == 0.5.*,
         data-default == 0.5.*,
+        lens >= 4.9 && < 5,
         xml-conduit == 1.3.*
