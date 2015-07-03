@@ -16,16 +16,21 @@ import Slick.Render
 import Slick.SVG
 
 main = do
-    filename:_ ← getArgs
+    -- filename:_ ← getArgs
+    let filename = "quantum_mechanic.svg"
     document ← XML.readFile def filename
     let header = extractHeader document
         defs = mkDefsFromSVG document
-        uses = extractElementsForUse document (Set.fromList ["logo_gear"])
+        uses = extractElementsForUse document (Set.fromList ["logo_gear","logo_the","logo_uantum","logo_gear_tail","logo_Mechanic"])
 
         new_document =
             svg header
                 [defs
                 ,(use (fromJust $ Map.lookup "logo_gear" uses))
+                ,(use (fromJust $ Map.lookup "logo_the" uses))
+                ,(use (fromJust $ Map.lookup "logo_uantum" uses))
+                ,(use (fromJust $ Map.lookup "logo_gear_tail" uses))
+                ,(use (fromJust $ Map.lookup "logo_Mechanic" uses))
                 ]
     XML.writeFile def "new_document.svg" new_document
     viewDocument new_document

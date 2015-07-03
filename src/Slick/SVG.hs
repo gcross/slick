@@ -24,6 +24,8 @@ import Text.XML (Document(..),Element(..),Name(..),Node(..),Prologue(..))
 
 import Slick.Transition (Interpolatable(..))
 
+import Debug.Trace
+
 parseSize :: Element → Text → Double
 parseSize Element{..} name =
     case parseOnly size_parser (fromMaybe (error $ unpack name ++" field does not exist.") $ Map.lookup (Name name Nothing Nothing) elementAttributes) of
@@ -149,7 +151,7 @@ use Use{..} =
 extractElementsForUse :: Document → Set Text → Map Text Use
 extractElementsForUse Document{..} id_set =
     if not (Set.null remaining_id_set)
-    then error $ "Some ids were not found:" ++ show id_set
+    then error $ "Some ids were not found: " ++ show (Set.toList remaining_id_set)
     else id_map
   where
     (id_map,remaining_id_set) = flip execState (mempty, id_set) $ goElement mempty documentRoot
@@ -159,7 +161,7 @@ extractElementsForUse Document{..} id_set =
         case Map.lookup "id" elementAttributes of
             Just id'
               | Set.member id' remaining_id_set →
-                    put (Map.insert id' (mkUse id' new_transform) id_map, Set.delete id' id_set)
+                    put (Map.insert id' (mkUse id' new_transform) id_map, Set.delete id' remaining_id_set)
             _ → return ()
         forM_ [element | NodeElement element ← elementNodes] $ goElement new_transform
       where
