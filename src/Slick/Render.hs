@@ -51,6 +51,8 @@ import Graphics.UI.SDL
 
 import Control.Lens ((^.))
 
+import Data.IORef (readIORef,newIORef,writeIORef)
+
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Storable (poke)
 
@@ -219,29 +221,32 @@ viewAnimation animation_and_state render = do
 
         c_SlickAddTimer
 
-        let update scale animation_and_state = do
+        animation_and_state_ref ← newIORef animation_and_state_at_0
+        scale_ref ← newIORef 1
+
+        let redraw = do
                 current_time ← getCurrentTime
                 let time = current_time `diffUTCTime` starting_time
-                    new_animation_and_state = runAnimationAndState animation_and_state time
-                    document = render (new_animation_and_state ^. as_state)
+                new_state ← runAnimationAndStateInIORef animation_and_state_ref time
+                let document = render new_state
+                scale ← readIORef scale_ref
                 renderDocument renderer (scaleDocument scale document)
-                go scale new_animation_and_state
-            go scale animation_and_state = do
+                processEvents
+            processEvents = do
                 event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-                let go' = go scale animation_and_state
                 case event of
                     WindowEvent {..} → do
                         case windowEventEvent of
                             SDL.SDL_WINDOWEVENT_CLOSE → return ()
                             SDL.SDL_WINDOWEVENT_EXPOSED → do
-                                update scale animation_and_state
+                                redraw
                             SDL.SDL_WINDOWEVENT_RESIZED → do
                                 let width = windowEventData1
                                     height = windowEventData2
                                     (fixed_width, fixed_height) = fixSize aspect_ratio width height
                                 setWindowSize window fixed_width fixed_height
-                                let new_scale = fromIntegral fixed_width/fromIntegral initial_width
-                                update new_scale animation_and_state
-                            _ → go'
-                    _ → go'
-        go 1 animation_and_state_at_0
+                                writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
+                                redraw
+                            _ → processEvents
+                    _ → processEvents
+        processEvents
