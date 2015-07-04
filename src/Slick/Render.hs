@@ -69,6 +69,7 @@ import System.Exit
 import Unsafe.Coerce (unsafeCoerce)
 
 import Slick.Animation
+import Slick.Presentation
 import Slick.SVG
 
 newtype CairoContext = CairoContext (Ptr ())
@@ -212,7 +213,7 @@ data RunningStatus =
     Running !UTCTime !NominalDiffTime
   | Paused !NominalDiffTime
 
-viewAnimation :: AnimationAndState NominalDiffTime s → (s → Document) → IO ()
+viewAnimation :: Show s ⇒ AnimationAndState Double s → (s → Document) → IO ()
 viewAnimation animation_and_state render = do
     let animation_and_state_at_0 = runAnimationAndState animation_and_state 0
         document_at_0@Document{..} = render (animation_and_state_at_0 ^. as_state)
@@ -221,9 +222,10 @@ viewAnimation animation_and_state render = do
         aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
 
     starting_time ← getCurrentTime
-    running_status_ref ← newIORef $ Running starting_time 0
 
-    timer_callback2 ← mkTimerCallback $ \interval _ → return interval
+    -- THe starting time needs to be at 0.0001 so that all of the instantaneous
+    -- animations run before start drawing.
+    running_status_ref ← newIORef $ Running starting_time 0.0001
 
     withSDL initial_width initial_height $ \window renderer → do
 
@@ -250,16 +252,16 @@ viewAnimation animation_and_state render = do
             toggle = do
                 running_status ← readIORef running_status_ref
                 case running_status of
-                    Paused _ → putStrLn "Resuming..." >> resume
-                    Running _ _ → putStrLn "Pausing..." >> pause
+                    Paused _ → resume
+                    Running _ _ → pause
             redraw = do
                 time ← do
                     running_status ← readIORef running_status_ref
                     case running_status of
                         Running starting_time additional_time → do
                             current_time ← getCurrentTime
-                            return $ (current_time `diffUTCTime` starting_time) + additional_time
-                        Paused additional_time → return additional_time
+                            return . realToFrac $ (current_time `diffUTCTime` starting_time) + additional_time
+                        Paused additional_time → return . realToFrac $ additional_time
                 new_state ← runAnimationAndStateInIORef animation_and_state_ref time
                 let document = render new_state
                 scale ← readIORef scale_ref
@@ -269,7 +271,7 @@ viewAnimation animation_and_state render = do
                 has_events ← hasEvents SDL.SDL_WINDOWEVENT SDL.SDL_KEYDOWN
                 when has_events $ do
                     event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-                    putStrLn $ "Next event is " ++ show event
+                    -- putStrLn $ "Next event is " ++ show event
                     case event of
                         WindowEvent {..} →
                             case windowEventEvent of
@@ -283,13 +285,19 @@ viewAnimation animation_and_state render = do
                                     writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
                                     redraw
                                 _ → return ()
-                        KeyboardEvent {..} → putStrLn "Key detected!" >>
+                        KeyboardEvent {..} →
                             case keyboardEventState of
                                 SDL.SDL_PRESSED →
                                     case keysymKeycode keyboardEventKeysym of
                                         SDL.SDLK_SPACE → toggle
+                                        SDL.SDLK_LEFT → do
+                                            writeIORef running_status_ref (Paused 0.0001)
                                         _ → return ()
                                 _ → return ()
                         _ → return ()
                 redraw
         forever $ processEvent
+
+viewPresentation :: Show s ⇒ CombinationMode → s → (s → Document) → Presentation Double s () → IO ()
+viewPresentation combination_mode initial_state render presentation =
+    viewAnimation (execPresentationIn combination_mode initial_state presentation) render

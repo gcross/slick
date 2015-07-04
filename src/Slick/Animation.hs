@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -45,6 +46,9 @@ cachelessAnimation duration function = clampAnimation $ Animation duration () (\
 
 statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t
 statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
+
+instantaneousAnimation :: (Fractional t, Ord t) ⇒ s → s → Animation t s
+instantaneousAnimation before after = clampAnimation $ cachelessAnimation 0.00000001 (\t _ → if t == 0 then before else after)
 
 durationOf :: Animation t s → t
 durationOf animation = case animation of Animation{..} → animationDuration
@@ -115,6 +119,7 @@ moveRight state (AnimationZipper left (right:rest) current left_time) = (new_sta
 
 serial :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
 serial [] = null_animation
+serial [animation] = animation
 serial animations@(first:rest) = clampAnimation $ Animation{..}
   where
     animationDuration = sum . map durationOf $ animations
@@ -159,3 +164,4 @@ parallel animations = Animation animationDuration animationCache animationFuncti
             state
             list
 
+type Timelike t = (Floating t, Ord t)

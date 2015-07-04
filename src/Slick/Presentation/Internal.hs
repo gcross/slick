@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -11,7 +10,7 @@ module Slick.Presentation.Internal where
 import Control.Applicative ((<$>),(<*>))
 import Control.Lens (Lens',(&),(^.),(.~),(.=),(%=),(<%=),set,use,view)
 import Control.Lens.TH (makeLenses)
-import qualified Control.Monad.State as State
+import qualified Control.Monad.State.Strict as State
 import Control.Monad.Trans.State (State,get,execState,put,runState,state)
 
 import Data.Composition ((.**))
@@ -20,9 +19,11 @@ import qualified Data.DList as DList
 import Data.Functor (fmap)
 import Data.Time.Clock (DiffTime)
 
+import GHC.Stack (errorWithStackTrace)
+
 import Slick.Animation
 
-data CombinationMode = Serial | Parallel
+data CombinationMode = Serial | Parallel deriving (Show, Eq)
 
 data PresentationState t s = PresentationState
     { _p_combination_mode :: CombinationMode
@@ -42,16 +43,15 @@ instance Timelike t ⇒ State.MonadState s (Presentation t s) where
     get = Presentation $ use p_state
     put s = Presentation $ do
         old_s ← use p_state
-        appendAnimation $ cachelessAnimation 0.000001 (\t → if t == 0 then const old_s else const s)
+        appendAnimation $ instantaneousAnimation old_s s
         p_state .= s
     state act = Presentation $ state act'
       where
         act' old_state = (value, new_state)
           where
-            (value, new_state') = act (old_state ^. p_state)
-            new_state = PresentationState Serial 0 0 new_state' DList.empty
-
-type Timelike t = (Floating t, Ord t)
+            old_state' = old_state ^. p_state
+            (value, new_state') = act old_state'
+            new_state = PresentationState Serial 0 0 new_state' (DList.singleton $ instantaneousAnimation old_state' new_state')
 
 combineAnimationsUsing :: Timelike t ⇒ CombinationMode → [Animation t s] → Animation t s
 combineAnimationsUsing Serial = serial

@@ -179,8 +179,8 @@ makeLenses ''Use
 mkUse :: Text → Text → Use
 mkUse use_id parent_transform = Use use_id parent_transform 0 0 0 (PropScale 1) 0 0
 
-use :: Use → Element
-use Use{..} =
+renderUse :: Use → Element
+renderUse Use{..} =
     Element
         (mkName "use")
         (Map.fromList
@@ -194,13 +194,13 @@ use Use{..} =
         useParentTransform
         <>
         (pack $
-            "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")" ++
             "scale(" ++ (
                 case _scale of
                     PropScale scale → show scale
                     NonPropScale x y → show x ++ " " ++ show y
              ) ++ ")" ++
-             "translate(" ++ show _x ++ " " ++ show _y ++ ")"
+             "translate(" ++ show _x ++ " " ++ show _y ++ ")" ++
+             "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")"
         )
 
 extractElementsForUse :: Document → Set Text → Map Text Use

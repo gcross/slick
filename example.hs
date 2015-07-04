@@ -4,7 +4,7 @@
 
 module Main where
 
-import Control.Lens (makeLenses,(^.),(.~))
+import Control.Lens ((.=),(%=),(^.),(.~),makeLenses,use)
 
 import Data.Time.Clock(NominalDiffTime)
 import Data.Default (def)
@@ -17,8 +17,13 @@ import System.Environment
 import qualified Text.XML as XML
 
 import Slick.Animation
+import Slick.Presentation
 import Slick.Render
 import Slick.SVG
+import Slick.Transition
+
+import Control.Monad.State (get,put)
+import Debug.Trace
 
 data LogoState = LogoState
     {   _logo_the :: Use
@@ -26,7 +31,7 @@ data LogoState = LogoState
     ,   _logo_mechanic :: Use
     ,   _logo_gear :: Use
     ,   _logo_gear_tail :: Use
-    }
+    } deriving (Eq,Ord,Show)
 makeLenses ''LogoState
 
 main = do
@@ -35,11 +40,12 @@ main = do
     document ← XML.readFile def filename
     let defs = mkDefsFromSVG document
         uses = extractElementsForUse document . Set.fromList $
-            ["logo_gear"
-            ,"logo_the"
+            ["logo_the"
+            ,"logo_gear"
             ,"logo_uantum"
-            ,"logo_gear_tail"
             ,"logo_mechanic"
+            ,"logo_gear"
+            ,"logo_gear_tail"
             ]
         initial_logo_state = LogoState
             (fromJust $ Map.lookup "logo_the" uses)
@@ -50,13 +56,25 @@ main = do
         renderToDocument logo_state =
             svg (document ^. header)
                 [defs
-                ,use $ logo_state ^. logo_the
-                ,use $ logo_state ^. logo_uantum
-                ,use $ logo_state ^. logo_mechanic
-                ,use $ logo_state ^. logo_gear
-                ,use $ logo_state ^. logo_gear_tail
+                ,renderUse $ logo_state ^. logo_the
+                ,renderUse $ logo_state ^. logo_uantum
+                ,renderUse $ logo_state ^. logo_mechanic
+                ,renderUse $ logo_state ^. logo_gear
+                ,renderUse $ logo_state ^. logo_gear_tail
                 ]
-        animation :: Animation NominalDiffTime LogoState
-        animation = cachelessAnimation 100 (\t → logo_the . y .~ 20 * realToFrac t)
-        animation_and_state = AnimationAndState animation initial_logo_state
-    viewAnimation animation_and_state renderToDocument
+    viewPresentation Serial initial_logo_state renderToDocument $ do
+        logo_the . x .= -380
+        logo_uantum . x .= 540
+        logo_mechanic . y .= 280
+        logo_gear . y .= -314
+        logo_gear . rotation_x .= 450
+        logo_gear . rotation_y .= 725
+        logo_gear_tail . y .= -314
+
+        in_ Parallel $ do
+            decelerateTo (logo_the . x) 1 0
+            decelerateTo (logo_uantum . x) 1 0
+            decelerateTo (logo_mechanic . y) 1 0
+            decelerateTo (logo_gear . y) 1 0
+            decelerateTo (logo_gear_tail . y) 1 0
+            decelerateBy (logo_gear . rotation_angle) 1 360
