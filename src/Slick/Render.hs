@@ -52,6 +52,7 @@ import Graphics.UI.SDL
     ,setWindowSize
     )
 
+import Control.Exception (bracket)
 import Control.Lens ((^.))
 import Control.Monad (forever,when)
 
@@ -154,27 +155,27 @@ renderDocument renderer document = do
 
 withSDL :: Int → Int → (Window → Renderer → IO α) → IO α
 withSDL initial_width initial_height action = do
-    retcode ← SDL.init (SDL.SDL_INIT_EVERYTHING)
-    errorWhen "Init" (retcode /= 0)
+    bracket
+        (do retcode ← SDL.init (SDL.SDL_INIT_EVERYTHING)
+            errorWhen "Init" (retcode /= 0)
 
-    window ← withCString "Hello, world!" $ \title →
-        createWindow
-            title
-            100 100
-            (fromIntegral initial_width)
-            (fromIntegral initial_height)
-            (SDL.SDL_WINDOW_SHOWN .|. SDL.SDL_WINDOW_RESIZABLE)
-    errorWhen "Create window" (window == nullPtr)
+            window ← withCString "Hello, world!" $ \title →
+                createWindow
+                    title
+                    100 100
+                    (fromIntegral initial_width)
+                    (fromIntegral initial_height)
+                    (SDL.SDL_WINDOW_SHOWN .|. SDL.SDL_WINDOW_RESIZABLE)
+            errorWhen "Create window" (window == nullPtr)
 
-    setWindowBordered window True
-    renderer ← createRenderer window (-1) SDL.SDL_RENDERER_ACCELERATED
-    errorWhen "Create renderer" (renderer == nullPtr)
+            setWindowBordered window True
+            renderer ← createRenderer window (-1) SDL.SDL_RENDERER_ACCELERATED
+            errorWhen "Create renderer" (renderer == nullPtr)
 
-    action_result ← action window renderer
-
-    quit
-
-    return action_result
+            return (window,renderer)
+        )
+        (const quit)
+        (uncurry action)
 
 
 viewDocument document@Document{..} = do
