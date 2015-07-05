@@ -6,24 +6,29 @@
 
 module Slick.Render where
 
+import Control.Exception (bracket)
+import Control.Lens ((^.))
+import Control.Monad (forever,when)
 import Control.Monad (forever,void)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Bits ((.|.))
+import Data.ByteString.Lazy (toChunks)
 import qualified Data.ByteString as BS
 import Data.Conduit (Consumer, (=$=), await, runConduit)
 import Data.Default (def)
+import Data.IORef (readIORef,newIORef,writeIORef)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Text (Text, pack, unpack)
-import Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime)
+import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
 import Foreign.C.String (CString, peekCString, withCString)
 import Foreign.C.Types (CChar(..), CInt(..), CULong(..))
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr, nullPtr)
-import Foreign.Storable (peek)
+import Foreign.Storable (peek,poke)
 
 import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL
@@ -53,16 +58,6 @@ import Graphics.UI.SDL
     ,setWindowBordered
     ,setWindowSize
     )
-
-import Control.Exception (bracket)
-import Control.Lens ((^.))
-import Control.Monad (forever,when)
-
-import Data.Time.Clock (UTCTime)
-import Data.IORef (readIORef,newIORef,writeIORef)
-
-import Foreign.Marshal.Alloc (alloca)
-import Foreign.Storable (poke)
 
 import qualified Text.XML as XML
 import Text.XML (Document(..), Element(..), Name(..), renderBytes)
