@@ -29,6 +29,8 @@ import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL
     (Event(..)
     ,Renderer
+    ,Surface
+    ,Texture
     ,Window
     ,addTimer
     ,createRGBSurfaceFrom
@@ -80,11 +82,13 @@ newtype RsvgHandle = RsvgHandle (Ptr ())
 
 ignore_rsvg_error = RsvgError nullPtr
 
+
 foreign import ccall "rsvg_handle_new" c_rsvg_handle_new :: IO RsvgHandle
 foreign import ccall "rsvg_handle_new_from_file" c_rsvg_handle_new_from_file :: CString → RsvgError → IO RsvgHandle
 foreign import ccall "rsvg_handle_write" c_rsvg_handle_write :: RsvgHandle → Ptr CChar → CULong → RsvgError → IO Bool
 foreign import ccall "rsvg_handle_close" c_rsvg_handle_close :: RsvgHandle → IO Bool
 foreign import ccall "rsvg_handle_render_cairo" c_rsvg_handle_render_cairo :: RsvgHandle → CairoContext → IO Bool
+foreign import ccall "rsvg_handle_free" c_rsvg_handle_free :: RsvgHandle → IO ()
 
 foreign import ccall "cairo_image_surface_create" c_cairo_image_surface_create :: CInt → CInt → CInt → IO CairoSurface
 foreign import ccall "cairo_image_surface_create_for_data" c_cairo_image_surface_create_for_data :: Ptr () → CInt → CInt → CInt → IO (CairoSurface)
@@ -93,6 +97,7 @@ foreign import ccall "cairo_destroy" c_cairo_destroy :: CairoContext → IO ()
 foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_data :: CairoSurface → IO (Ptr ())
 foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
 foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
+foreign import ccall "cairo_surface_destroy" c_cairo_surface_destroy :: CairoSurface → IO ()
 
 errorWhen _ False = return ()
 errorWhen label True = do
@@ -122,41 +127,74 @@ withCairoContext surface action =
         c_cairo_destroy
         action
 
+withRsvgHandle :: (RsvgHandle → IO α) → IO α
+withRsvgHandle action =
+    bracket
+        c_rsvg_handle_new
+        c_rsvg_handle_free
+        action
+
+withCairoImageSurface :: Int → Int → Int → (CairoSurface → IO α) → IO α
+withCairoImageSurface format width height action =
+    bracket
+        (c_cairo_image_surface_create (fromIntegral format) (fromIntegral width) (fromIntegral height))
+        c_cairo_surface_destroy
+        action
+
+withTexture :: Renderer → Ptr Surface → (Texture → IO α) → IO α
+withTexture renderer surface action =
+    bracket
+        (createTextureFromSurface renderer surface)
+        destroyTexture
+        action
+
+withRGBSurface :: Ptr () → Int → Int → Int → Int → Int → Int → Int → Int → (Ptr Surface → IO α) → IO α
+withRGBSurface image_surface_ptr width height depth stride maskr maskg maskb maska action =
+    bracket
+        (createRGBSurfaceFrom
+            image_surface_ptr
+            (fromIntegral width)
+            (fromIntegral height)
+            32
+            (4*fromIntegral width)
+            0 0 0 0
+        )
+        freeSurface
+        action
+
 renderDocument :: Renderer → Document → IO ()
 renderDocument renderer document = do
     let Header (round → width) (round → height) = document ^. header
 
-    rsvg_handle ← c_rsvg_handle_new
-    let consumer :: Consumer BS.ByteString IO ()
-        consumer = do
-            mbs ← await
-            case mbs of
-                Nothing → void . liftIO $ c_rsvg_handle_close rsvg_handle
-                Just bs →
-                    (liftIO . BS.useAsCString bs $ \ptr →
-                        c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
-                    >>
-                    consumer
-    runConduit $ renderBytes def document =$= consumer
-    c_rsvg_handle_close rsvg_handle
+    withCairoImageSurface 1 (fromIntegral width) (fromIntegral height) $ \image_surface → do
+        withRsvgHandle $ \rsvg_handle → do
+            rsvg_handle ← c_rsvg_handle_new
+            let consumer :: Consumer BS.ByteString IO ()
+                consumer = do
+                    mbs ← await
+                    case mbs of
+                        Nothing → void . liftIO $ c_rsvg_handle_close rsvg_handle
+                        Just bs →
+                            (liftIO . BS.useAsCString bs $ \ptr →
+                                c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
+                            >>
+                            consumer
+            runConduit $ renderBytes def document =$= consumer
+            c_rsvg_handle_close rsvg_handle
 
-    image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
+            withCairoContext image_surface $ \cairo_context → do
+                c_cairo_set_source_rgb cairo_context 1 1 1
+                c_cairo_paint cairo_context
+                c_rsvg_handle_render_cairo rsvg_handle cairo_context
 
-    withCairoContext image_surface $ \cairo_context → do
-        c_cairo_set_source_rgb cairo_context 1 1 1
-        c_cairo_paint cairo_context
-        c_rsvg_handle_render_cairo rsvg_handle cairo_context
+        image_surface_ptr ← c_cairo_image_surface_get_data image_surface
 
-    image_surface_ptr ← c_cairo_image_surface_get_data image_surface
-    surface ← createRGBSurfaceFrom image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0
+        withRGBSurface image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0 $ \surface →
 
-    texture ← createTextureFromSurface renderer surface
-    errorWhen "Create texture" (surface == nullPtr)
-    freeSurface surface
-
-    retcode ← renderCopy renderer texture nullPtr nullPtr
-    errorWhen "Copy renderer" (retcode /= 0)
-    destroyTexture texture
+            withTexture renderer surface $ \texture → do
+                retcode ← renderCopy renderer texture nullPtr nullPtr
+                errorWhen "Copy renderer" (retcode /= 0)
+                destroyTexture texture
 
     renderPresent renderer
 
