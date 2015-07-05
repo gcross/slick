@@ -115,6 +115,13 @@ fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
         then height_f * current_aspect_ratio / correct_aspect_ratio
         else height_f
 
+withCairoContext :: CairoSurface → (CairoContext → IO α) → IO α
+withCairoContext surface action =
+    bracket
+        (c_cairo_create surface)
+        c_cairo_destroy
+        action
+
 renderDocument :: Renderer → Document → IO ()
 renderDocument renderer document = do
     let Header (round → width) (round → height) = document ^. header
@@ -134,10 +141,11 @@ renderDocument renderer document = do
     c_rsvg_handle_close rsvg_handle
 
     image_surface ← c_cairo_image_surface_create 1 (fromIntegral width) (fromIntegral height)
-    cairo_context ← c_cairo_create image_surface
-    c_cairo_set_source_rgb cairo_context 1 1 1
-    c_cairo_paint cairo_context
-    c_rsvg_handle_render_cairo rsvg_handle cairo_context
+
+    withCairoContext image_surface $ \cairo_context → do
+        c_cairo_set_source_rgb cairo_context 1 1 1
+        c_cairo_paint cairo_context
+        c_rsvg_handle_render_cairo rsvg_handle cairo_context
 
     image_surface_ptr ← c_cairo_image_surface_get_data image_surface
     surface ← createRGBSurfaceFrom image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0
@@ -145,7 +153,6 @@ renderDocument renderer document = do
     texture ← createTextureFromSurface renderer surface
     errorWhen "Create texture" (surface == nullPtr)
     freeSurface surface
-    c_cairo_destroy cairo_context
 
     retcode ← renderCopy renderer texture nullPtr nullPtr
     errorWhen "Copy renderer" (retcode /= 0)
