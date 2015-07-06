@@ -88,5 +88,16 @@ int main() {
     SDL_Texture_ texture(renderer._, sdl_surface._);
     SDL_RenderCopy(renderer._, texture._, NULL, NULL);
     SDL_RenderPresent(renderer._);
-    for(;;) {}
+    while(true) {
+            SDL_Event event;
+            SDL_PollEvent(&event);
+            switch(event.type) {
+                case SDL_QUIT: return 0;
+                case SDL_WINDOWEVENT:
+                    switch(event.window.event) {
+                        case SDL_WINDOWEVENT_CLOSE: return 0;
+                    }
+                    break;
+            }
+    }
 }
