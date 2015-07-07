@@ -8,8 +8,7 @@ module Slick.Render where
 
 import Control.Exception (bracket)
 import Control.Lens ((^.))
-import Control.Monad (forever,when)
-import Control.Monad (forever,void)
+import Control.Monad (forM_,forever,when,void)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Bits ((.|.))
@@ -60,7 +59,7 @@ import Graphics.UI.SDL
     )
 
 import qualified Text.XML as XML
-import Text.XML (Document(..), Element(..), Name(..), renderBytes)
+import Text.XML (Document(..), Element(..), Name(..), renderLBS)
 
 import System.Exit
 
@@ -84,6 +83,7 @@ foreign import ccall "rsvg_handle_write" c_rsvg_handle_write :: RsvgHandle → P
 foreign import ccall "rsvg_handle_close" c_rsvg_handle_close :: RsvgHandle → IO Bool
 foreign import ccall "rsvg_handle_render_cairo" c_rsvg_handle_render_cairo :: RsvgHandle → CairoContext → IO Bool
 foreign import ccall "rsvg_handle_free" c_rsvg_handle_free :: RsvgHandle → IO ()
+foreign import ccall "g_object_unref" c_g_object_unref :: RsvgHandle → IO ()
 
 foreign import ccall "cairo_image_surface_create" c_cairo_image_surface_create :: CInt → CInt → CInt → IO CairoSurface
 foreign import ccall "cairo_image_surface_create_for_data" c_cairo_image_surface_create_for_data :: Ptr () → CInt → CInt → CInt → IO (CairoSurface)
@@ -126,7 +126,8 @@ withRsvgHandle :: (RsvgHandle → IO α) → IO α
 withRsvgHandle action =
     bracket
         c_rsvg_handle_new
-        c_rsvg_handle_free
+        -- c_rsvg_handle_free
+        c_g_object_unref
         action
 
 withCairoImageSurface :: Int → Int → Int → (CairoSurface → IO α) → IO α
@@ -164,6 +165,8 @@ renderDocument renderer document = do
     withCairoImageSurface 1 (fromIntegral width) (fromIntegral height) $ \image_surface → do
         withRsvgHandle $ \rsvg_handle → do
             rsvg_handle ← c_rsvg_handle_new
+            return ()
+{-
             let consumer :: Consumer BS.ByteString IO ()
                 consumer = do
                     mbs ← await
@@ -174,23 +177,22 @@ renderDocument renderer document = do
                                 c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
                             >>
                             consumer
-            runConduit $ renderBytes def document =$= consumer
-            c_rsvg_handle_close rsvg_handle
 
+            return ()
+            runConduit $ renderBytes def document =$= consumer
             withCairoContext image_surface $ \cairo_context → do
                 c_cairo_set_source_rgb cairo_context 1 1 1
                 c_cairo_paint cairo_context
                 c_rsvg_handle_render_cairo rsvg_handle cairo_context
-
-        image_surface_ptr ← c_cairo_image_surface_get_data image_surface
-
+-}
+--        image_surface_ptr ← c_cairo_image_surface_get_data image_surface
+{-
         withRGBSurface image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0 $ \surface →
 
             withTexture renderer surface $ \texture → do
                 retcode ← renderCopy renderer texture nullPtr nullPtr
                 errorWhen "Copy renderer" (retcode /= 0)
-                destroyTexture texture
-
+-}
     renderPresent renderer
 
 withSDL :: Int → Int → (Window → Renderer → IO α) → IO α
@@ -342,3 +344,13 @@ viewAnimation animation_and_state render = do
 viewPresentation :: Show s ⇒ CombinationMode → s → (s → Document) → Presentation Double s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
+
+foreign import ccall "slick_write_to_handle" c_slick_write_to_handle :: Ptr () → CString → CULong → IO ()
+
+slick_write_document :: Ptr () → IO ()
+slick_write_document rsvg_handle = do
+    contents ← BS.readFile "quantum-mechanic.svg"
+    BS.useAsCString contents $ \buf →
+        c_slick_write_to_handle rsvg_handle buf (fromIntegral $ BS.length contents)
+
+foreign export ccall slick_write_document :: Ptr () → IO ()
