@@ -81,4 +81,8 @@ Executable example2
     Build-depends:
         slick,
         base,
-        bytestring == 0.10.*
+        bytestring == 0.10.*,
+        conduit == 1.2.*,
+        data-default == 0.5.*,
+        transformers == 0.4.*,
+        xml-conduit == 1.3.*
