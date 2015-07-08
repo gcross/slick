@@ -84,5 +84,7 @@ Executable example2
         bytestring == 0.10.*,
         conduit == 1.2.*,
         data-default == 0.5.*,
+        lens >= 4.9 && < 5,
+        mtl == 2.2.*,
         transformers == 0.4.*,
         xml-conduit == 1.3.*

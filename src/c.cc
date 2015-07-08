@@ -80,9 +80,9 @@ void slick_write_to_handle(RsvgHandle *handle, unsigned char *buf, unsigned long
     if(not rsvg_handle_write(handle, buf, count, &error)) write_error_and_quit(error);
 }
 
-void slick_write_document(RsvgHandle* handle);
+void slick_write_document(void *slick_state, RsvgHandle* handle);
 
-int slick_run() {
+int slick_run(void *slick_state) {
     SDL sdl;
     SDL_Window_ window(WIDTH, HEIGHT);
     SDL_Renderer_ renderer(window._);
@@ -93,7 +93,7 @@ int slick_run() {
         cairo_set_source_rgb(context._, 1, 1, 1);
         cairo_paint(context._);
         RsvgHandle_ handle;
-        slick_write_document(handle._);
+        slick_write_document(slick_state, handle._);
         GError *error;
         if(not rsvg_handle_close(handle._, &error)) write_error_and_quit(error);
         rsvg_handle_render_cairo(handle._, context._);
