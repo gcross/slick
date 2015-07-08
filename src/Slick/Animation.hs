@@ -68,15 +68,15 @@ data AnimationAndState t s = AnimationAndState
     }
 makeLenses ''AnimationAndState
 
-runAnimationAndState :: AnimationAndState t s → t → AnimationAndState t s
-runAnimationAndState old t = AnimationAndState new_animation new_state
+runAnimationAndState :: t → AnimationAndState t s → AnimationAndState t s
+runAnimationAndState t old = AnimationAndState new_animation new_state
   where
     (new_state, new_animation) = runAnimation (old ^. as_animation) t (old ^. as_state)
 
-runAnimationAndStateInIORef :: IORef (AnimationAndState t s) → t → IO s
-runAnimationAndStateInIORef ref t = do
+runAnimationAndStateInIORef :: t → IORef (AnimationAndState t s) → IO s
+runAnimationAndStateInIORef t ref = do
     old ← readIORef ref
-    let new = runAnimationAndState old t
+    let new = runAnimationAndState t old
     writeIORef ref new
     return (new ^. as_state)
 

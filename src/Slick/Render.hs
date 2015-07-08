@@ -258,7 +258,7 @@ data RunningStatus =
 
 viewAnimation :: Show s ⇒ AnimationAndState Double s → (s → Document) → IO ()
 viewAnimation animation_and_state render = do
-    let animation_and_state_at_0 = runAnimationAndState animation_and_state 0
+    let animation_and_state_at_0 = runAnimationAndState 0 animation_and_state
         document_at_0@Document{..} = render (animation_and_state_at_0 ^. as_state)
         Header (round → initial_width) (round → initial_height) = document_at_0 ^. header
     let aspect_ratio :: Double
@@ -305,7 +305,7 @@ viewAnimation animation_and_state render = do
                             current_time ← getCurrentTime
                             return . realToFrac $ (current_time `diffUTCTime` starting_time) + additional_time
                         Paused additional_time → return . realToFrac $ additional_time
-                new_state ← runAnimationAndStateInIORef animation_and_state_ref time
+                new_state ← runAnimationAndStateInIORef time animation_and_state_ref
                 let document = render new_state
                 scale ← readIORef scale_ref
                 renderDocument renderer (scaleDocument scale document)
@@ -345,12 +345,3 @@ viewPresentation :: Show s ⇒ CombinationMode → s → (s → Document) → Pr
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 
-foreign import ccall "slick_write_to_handle" c_slick_write_to_handle :: Ptr () → CString → CULong → IO ()
-
-slick_write_document :: Ptr () → IO ()
-slick_write_document rsvg_handle = do
-    contents ← BS.readFile "quantum-mechanic.svg"
-    BS.useAsCString contents $ \buf →
-        c_slick_write_to_handle rsvg_handle buf (fromIntegral $ BS.length contents)
-
-foreign export ccall slick_write_document :: Ptr () → IO ()

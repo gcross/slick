@@ -83,8 +83,10 @@ Executable example2
         base,
         bytestring == 0.10.*,
         conduit == 1.2.*,
+        containers == 0.5.*,
         data-default == 0.5.*,
         lens >= 4.9 && < 5,
         mtl == 2.2.*,
+        time == 1.5.*,
         transformers == 0.4.*,
         xml-conduit == 1.3.*
