@@ -80,6 +80,7 @@ void slick_write_to_handle(RsvgHandle *handle, unsigned char *buf, unsigned long
 }
 
 void slick_write_document(void *slick_state, RsvgHandle* handle);
+void slick_toggle_mode(void *slick_state);
 
 int slick_run(void *slick_state) {
     SDL sdl;
@@ -110,6 +111,12 @@ int slick_run(void *slick_state) {
                     case SDL_WINDOWEVENT_CLOSE: return 0;
                 }
                 break;
+            case SDL_KEYUP:
+                switch(event.key.keysym.sym) {
+                    case SDLK_SPACE:
+                        slick_toggle_mode(slick_state);
+                        break;
+                }
         }
     }
 }

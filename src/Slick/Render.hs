@@ -7,7 +7,7 @@
 
 module Slick.Render where
 
-import Control.Lens ((<%=),makeLenses,use)
+import Control.Lens ((%=),(<%=),makeLenses,use)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Strict (StateT, runStateT)
 
@@ -88,10 +88,22 @@ slick_write_document state_ptr rsvg_handle = withState state_ptr $ do
                     consumer
     runConduit $ XML.renderBytes def document =$= consumer
 
+foreign export ccall slick_toggle_mode :: Ptr () → IO ()
+
+slick_toggle_mode :: Ptr () → IO ()
+slick_toggle_mode state_ptr = withState state_ptr $ do
+    current_time ← liftIO getCurrentTime
+    s_mode %=
+      (\mode →
+        case mode of
+            RunMode starting_time additional_time → PauseMode $ (current_time `diffUTCTime` starting_time) + additional_time
+            PauseMode additional_time → RunMode current_time additional_time
+      )
+
 viewAnimation :: AnimationAndState Double s → (s → Document) → IO ()
 viewAnimation animation_and_state render = do
     starting_time ← getCurrentTime
-    state_ref ← newIORef $ SlickState (RunMode starting_time 0) animation_and_state render
+    state_ref ← newIORef $ SlickState (PauseMode 0.0000001) animation_and_state render
     state_ref_ptr ← newStablePtr state_ref
     c_slick_run . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
