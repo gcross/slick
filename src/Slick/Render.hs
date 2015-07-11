@@ -1,104 +1,46 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Slick.Render where
 
-import Control.Exception (bracket)
-import Control.Lens ((^.))
-import Control.Monad (forM_,forever,when,void)
+import Control.Lens ((<%=),makeLenses,use)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.State.Strict (StateT, runStateT)
 
-import Data.Bits ((.|.))
-import Data.ByteString.Lazy (toChunks)
 import qualified Data.ByteString as BS
-import Data.Conduit (Consumer, (=$=), await, runConduit)
+import Data.Conduit ((=$=), await, runConduit)
 import Data.Default (def)
-import Data.IORef (readIORef,newIORef,writeIORef)
-import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
-import Data.Monoid ((<>))
-import Data.Text (Text, pack, unpack)
+import Data.IORef
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
-import Foreign.C.String (CString, peekCString, withCString)
-import Foreign.C.Types (CChar(..), CInt(..), CULong(..))
-import Foreign.Marshal.Alloc (alloca)
-import Foreign.Ptr (Ptr, nullPtr)
-import Foreign.Storable (peek,poke)
-
-import qualified Graphics.UI.SDL as SDL
-import Graphics.UI.SDL
-    (Event(..)
-    ,Renderer
-    ,Surface
-    ,Texture
-    ,Window
-    ,addTimer
-    ,createRGBSurfaceFrom
-    ,createRenderer
-    ,createTextureFromSurface
-    ,createWindow
-    ,destroyTexture
-    ,freeSurface
-    ,getError
-    ,hasEvents
-    ,keysymKeycode
-    ,mkTimerCallback
-    ,pushEvent
-    ,renderClear
-    ,renderCopy
-    ,renderPresent
-    ,pollEvent
-    ,pumpEvents
-    ,quit
-    ,setWindowBordered
-    ,setWindowSize
-    )
+import Foreign.C.String (CString)
+import Foreign.C.Types (CULong(..))
+import Foreign.Ptr (Ptr)
+import Foreign.StablePtr
 
 import qualified Text.XML as XML
-import Text.XML (Document(..), Element(..), Name(..), renderLBS)
-
-import System.Exit
-
-import Unsafe.Coerce (unsafeCoerce)
+import Text.XML (Document)
 
 import Slick.Animation
 import Slick.Presentation
-import Slick.SVG
 
-newtype CairoContext = CairoContext (Ptr ())
-newtype CairoSurface = CairoSurface (Ptr ())
-newtype RsvgError = RsvgError (Ptr (Ptr CChar))
-newtype RsvgHandle = RsvgHandle (Ptr ())
+foreign import ccall "slick_write_to_handle" c_slick_write_to_handle :: Ptr () → CString → CULong → IO ()
+foreign import ccall "slick_run" c_slick_run :: Ptr () → IO ()
 
-ignore_rsvg_error = RsvgError nullPtr
+data Mode =
+    RunMode UTCTime NominalDiffTime
+  | PauseMode NominalDiffTime
 
-
-foreign import ccall "rsvg_handle_new" c_rsvg_handle_new :: IO RsvgHandle
-foreign import ccall "rsvg_handle_new_from_file" c_rsvg_handle_new_from_file :: CString → RsvgError → IO RsvgHandle
-foreign import ccall "rsvg_handle_write" c_rsvg_handle_write :: RsvgHandle → Ptr CChar → CULong → RsvgError → IO Bool
-foreign import ccall "rsvg_handle_close" c_rsvg_handle_close :: RsvgHandle → IO Bool
-foreign import ccall "rsvg_handle_render_cairo" c_rsvg_handle_render_cairo :: RsvgHandle → CairoContext → IO Bool
-foreign import ccall "rsvg_handle_free" c_rsvg_handle_free :: RsvgHandle → IO ()
-foreign import ccall "g_object_unref" c_g_object_unref :: RsvgHandle → IO ()
-
-foreign import ccall "cairo_image_surface_create" c_cairo_image_surface_create :: CInt → CInt → CInt → IO CairoSurface
-foreign import ccall "cairo_image_surface_create_for_data" c_cairo_image_surface_create_for_data :: Ptr () → CInt → CInt → CInt → IO (CairoSurface)
-foreign import ccall "cairo_create" c_cairo_create :: CairoSurface → IO CairoContext
-foreign import ccall "cairo_destroy" c_cairo_destroy :: CairoContext → IO ()
-foreign import ccall "cairo_image_surface_get_data" c_cairo_image_surface_get_data :: CairoSurface → IO (Ptr ())
-foreign import ccall "cairo_paint" c_cairo_paint :: CairoContext → IO ()
-foreign import ccall "cairo_set_source_rgb" c_cairo_set_source_rgb :: CairoContext → Double → Double → Double → IO ()
-foreign import ccall "cairo_surface_destroy" c_cairo_surface_destroy :: CairoSurface → IO ()
-
-errorWhen _ False = return ()
-errorWhen label True = do
-    msg ← getError >>= peekCString
-    error $ label ++ " error: " ++ msg
-    quit
+data SlickState s = SlickState
+    {   _s_mode :: Mode
+    ,   _s_animation_and_state :: AnimationAndState Double s
+    ,   _s_renderer :: s → Document
+    }
+makeLenses ''SlickState
 
 fixSize :: (RealFrac α, Integral β, Integral ɣ) ⇒ α → β → β → (ɣ, ɣ)
 fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
@@ -115,233 +57,47 @@ fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
         then height_f * current_aspect_ratio / correct_aspect_ratio
         else height_f
 
-withCairoContext :: CairoSurface → (CairoContext → IO α) → IO α
-withCairoContext surface action =
-    bracket
-        (c_cairo_create surface)
-        c_cairo_destroy
-        action
+withState :: Ptr () → StateT (SlickState s) IO α → IO α
+withState state_ptr action = do
+    state_ref ← deRefStablePtr . castPtrToStablePtr $ state_ptr
+    state ← readIORef state_ref
+    (result, new_state) ← runStateT action state
+    writeIORef state_ref new_state
+    return result
 
-withRsvgHandle :: (RsvgHandle → IO α) → IO α
-withRsvgHandle action =
-    bracket
-        c_rsvg_handle_new
-        -- c_rsvg_handle_free
-        c_g_object_unref
-        action
+foreign export ccall slick_write_document :: Ptr () → Ptr () → IO ()
 
-withCairoImageSurface :: Int → Int → Int → (CairoSurface → IO α) → IO α
-withCairoImageSurface format width height action =
-    bracket
-        (c_cairo_image_surface_create (fromIntegral format) (fromIntegral width) (fromIntegral height))
-        c_cairo_surface_destroy
-        action
+slick_write_document :: Ptr () → Ptr () → IO ()
+slick_write_document state_ptr rsvg_handle = withState state_ptr $ do
+    mode ← use s_mode
+    time ← liftIO $ case mode of
+        RunMode starting_time additional_time → do
+            current_time ← getCurrentTime
+            return . realToFrac $ (current_time `diffUTCTime` starting_time) + additional_time
+        PauseMode time → return . realToFrac $ time
+    AnimationAndState _ new_state ← s_animation_and_state <%= runAnimationAndState time
+    renderer ← use s_renderer
+    let document = renderer new_state
+        consumer = do
+            mbs ← await
+            case mbs of
+                Nothing → return ()
+                Just bs → do
+                    (liftIO . BS.useAsCString bs $ \ptr →
+                        c_slick_write_to_handle rsvg_handle ptr (fromIntegral $ BS.length bs))
+                    consumer
+    runConduit $ XML.renderBytes def document =$= consumer
 
-withTexture :: Renderer → Ptr Surface → (Texture → IO α) → IO α
-withTexture renderer surface action =
-    bracket
-        (createTextureFromSurface renderer surface)
-        destroyTexture
-        action
-
-withRGBSurface :: Ptr () → Int → Int → Int → Int → Int → Int → Int → Int → (Ptr Surface → IO α) → IO α
-withRGBSurface image_surface_ptr width height depth stride maskr maskg maskb maska action =
-    bracket
-        (createRGBSurfaceFrom
-            image_surface_ptr
-            (fromIntegral width)
-            (fromIntegral height)
-            32
-            (4*fromIntegral width)
-            0 0 0 0
-        )
-        freeSurface
-        action
-
-renderDocument :: Renderer → Document → IO ()
-renderDocument renderer document = do
-    let Header (round → width) (round → height) = document ^. header
-
-    withCairoImageSurface 1 (fromIntegral width) (fromIntegral height) $ \image_surface → do
-        withRsvgHandle $ \rsvg_handle → do
-            rsvg_handle ← c_rsvg_handle_new
-            return ()
-{-
-            let consumer :: Consumer BS.ByteString IO ()
-                consumer = do
-                    mbs ← await
-                    case mbs of
-                        Nothing → void . liftIO $ c_rsvg_handle_close rsvg_handle
-                        Just bs →
-                            (liftIO . BS.useAsCString bs $ \ptr →
-                                c_rsvg_handle_write rsvg_handle ptr (fromIntegral $ BS.length bs) ignore_rsvg_error)
-                            >>
-                            consumer
-
-            return ()
-            runConduit $ renderBytes def document =$= consumer
-            withCairoContext image_surface $ \cairo_context → do
-                c_cairo_set_source_rgb cairo_context 1 1 1
-                c_cairo_paint cairo_context
-                c_rsvg_handle_render_cairo rsvg_handle cairo_context
--}
---        image_surface_ptr ← c_cairo_image_surface_get_data image_surface
-{-
-        withRGBSurface image_surface_ptr (fromIntegral width) (fromIntegral height) 32 (4*fromIntegral width) 0 0 0 0 $ \surface →
-
-            withTexture renderer surface $ \texture → do
-                retcode ← renderCopy renderer texture nullPtr nullPtr
-                errorWhen "Copy renderer" (retcode /= 0)
--}
-    renderPresent renderer
-
-withSDL :: Int → Int → (Window → Renderer → IO α) → IO α
-withSDL initial_width initial_height action = do
-    bracket
-        (do retcode ← SDL.init (SDL.SDL_INIT_EVERYTHING)
-            errorWhen "Init" (retcode /= 0)
-
-            window ← withCString "Hello, world!" $ \title →
-                createWindow
-                    title
-                    100 100
-                    (fromIntegral initial_width)
-                    (fromIntegral initial_height)
-                    (SDL.SDL_WINDOW_SHOWN .|. SDL.SDL_WINDOW_RESIZABLE)
-            errorWhen "Create window" (window == nullPtr)
-
-            setWindowBordered window True
-            renderer ← createRenderer window (-1) SDL.SDL_RENDERER_ACCELERATED
-            errorWhen "Create renderer" (renderer == nullPtr)
-
-            return (window,renderer)
-        )
-        (const quit)
-        (uncurry action)
-
-
-viewDocument document@Document{..} = do
-    let Element{..} = documentRoot
-        Header (round → initial_width) (round → initial_height) = document ^. header
-    let aspect_ratio :: Double
-        aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
-
-    withSDL initial_width initial_height $ \window renderer → do
-
-        renderDocument renderer document
-
-        let go = do
-                event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-                case event of
-                    WindowEvent {..} → do
-                        case windowEventEvent of
-                            SDL.SDL_WINDOWEVENT_CLOSE → return ()
-                            SDL.SDL_WINDOWEVENT_RESIZED → do
-                                let width = windowEventData1
-                                    height = windowEventData2
-                                    (fixed_width, fixed_height) = fixSize aspect_ratio width height
-                                setWindowSize window fixed_width fixed_height
-                                renderDocument
-                                    renderer
-                                    $
-                                    scaleDocument
-                                        (fromIntegral fixed_width/fromIntegral initial_width)
-                                        document
-                                go
-                            _ → go
-                    _ → go
-        go
-
-data RunningStatus =
-    Running !UTCTime !NominalDiffTime
-  | Paused !NominalDiffTime
-
-viewAnimation :: Show s ⇒ AnimationAndState Double s → (s → Document) → IO ()
+viewAnimation :: AnimationAndState Double s → (s → Document) → IO ()
 viewAnimation animation_and_state render = do
-    let animation_and_state_at_0 = runAnimationAndState 0 animation_and_state
-        document_at_0@Document{..} = render (animation_and_state_at_0 ^. as_state)
-        Header (round → initial_width) (round → initial_height) = document_at_0 ^. header
-    let aspect_ratio :: Double
-        aspect_ratio = fromIntegral initial_width / fromIntegral initial_height
-
     starting_time ← getCurrentTime
+    state_ref ← newIORef $ SlickState (RunMode starting_time 0) animation_and_state render
+    state_ref_ptr ← newStablePtr state_ref
+    c_slick_run . castStablePtrToPtr $ state_ref_ptr
+    freeStablePtr state_ref_ptr
 
-    -- THe starting time needs to be at 0.0001 so that all of the instantaneous
-    -- animations run before start drawing.
-    running_status_ref ← newIORef $ Running starting_time 0.0001
-
-    withSDL initial_width initial_height $ \window renderer → do
-
-        renderDocument renderer document_at_0
-
-        animation_and_state_ref ← newIORef animation_and_state_at_0
-        scale_ref ← newIORef 1
-
-        let pause = do
-                running_status ← readIORef running_status_ref
-                case running_status of
-                    Paused _ → return ()
-                    Running starting_time additional_time → do
-                        current_time ← getCurrentTime
-                        writeIORef running_status_ref $
-                            Paused ((current_time `diffUTCTime` starting_time) + additional_time)
-            resume = do
-                running_status ← readIORef running_status_ref
-                case running_status of
-                    Running _ _ → return ()
-                    Paused additional_time → do
-                        current_time ← getCurrentTime
-                        writeIORef running_status_ref $ Running current_time additional_time
-            toggle = do
-                running_status ← readIORef running_status_ref
-                case running_status of
-                    Paused _ → resume
-                    Running _ _ → pause
-            redraw = do
-                time ← do
-                    running_status ← readIORef running_status_ref
-                    case running_status of
-                        Running starting_time additional_time → do
-                            current_time ← getCurrentTime
-                            return . realToFrac $ (current_time `diffUTCTime` starting_time) + additional_time
-                        Paused additional_time → return . realToFrac $ additional_time
-                new_state ← runAnimationAndStateInIORef time animation_and_state_ref
-                let document = render new_state
-                scale ← readIORef scale_ref
-                renderDocument renderer (scaleDocument scale document)
-            processEvent = do
-                pumpEvents
-                has_events ← hasEvents SDL.SDL_WINDOWEVENT SDL.SDL_KEYDOWN
-                when has_events $ do
-                    event ← alloca $ \p_event → pollEvent p_event >> peek p_event
-                    -- putStrLn $ "Next event is " ++ show event
-                    case event of
-                        WindowEvent {..} →
-                            case windowEventEvent of
-                                SDL.SDL_WINDOWEVENT_CLOSE → exitSuccess
-                                SDL.SDL_WINDOWEVENT_EXPOSED → return ()
-                                SDL.SDL_WINDOWEVENT_RESIZED → do
-                                    let width = windowEventData1
-                                        height = windowEventData2
-                                        (fixed_width, fixed_height) = fixSize aspect_ratio width height
-                                    setWindowSize window fixed_width fixed_height
-                                    writeIORef scale_ref $ fromIntegral fixed_width/fromIntegral initial_width
-                                    redraw
-                                _ → return ()
-                        KeyboardEvent {..} →
-                            case keyboardEventState of
-                                SDL.SDL_PRESSED →
-                                    case keysymKeycode keyboardEventKeysym of
-                                        SDL.SDLK_SPACE → toggle
-                                        SDL.SDLK_LEFT → do
-                                            writeIORef running_status_ref (Paused 0.0001)
-                                        _ → return ()
-                                _ → return ()
-                        _ → return ()
-                redraw
-        forever $ processEvent
-
-viewPresentation :: Show s ⇒ CombinationMode → s → (s → Document) → Presentation Double s () → IO ()
+viewPresentation :: CombinationMode → s → (s → Document) → Presentation Double s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
+
 

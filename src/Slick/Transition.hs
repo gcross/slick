@@ -7,7 +7,7 @@
 
 module Slick.Transition where
 
-import Control.Lens (Lens',(%=),set,use)
+import Control.Lens (Lens',set,use)
 
 import Slick.Animation
 import Slick.Presentation

@@ -7,19 +7,14 @@
 
 module Slick.Presentation.Internal where
 
-import Control.Applicative ((<$>),(<*>))
-import Control.Lens (Lens',(&),(^.),(.~),(.=),(%=),(<%=),set,use,view)
+import Control.Lens (Lens',(^.),(.=),(%=),use)
 import Control.Lens.TH (makeLenses)
 import qualified Control.Monad.State.Strict as State
-import Control.Monad.Trans.State (State,get,execState,put,runState,state)
+import Control.Monad.Trans.State (State,get,runState,state)
 
 import Data.Composition ((.**))
 import Data.DList (DList)
 import qualified Data.DList as DList
-import Data.Functor (fmap)
-import Data.Time.Clock (DiffTime)
-
-import GHC.Stack (errorWithStackTrace)
 
 import Slick.Animation
 

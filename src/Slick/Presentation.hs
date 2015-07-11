@@ -4,7 +4,7 @@
 module Slick.Presentation
     (Presentation
     ,CombinationMode(..)
-    ,Timelike(..)
+    ,Timelike
     ,appendAnimation
     ,runPresentationIn
     ,execPresentationIn

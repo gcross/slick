@@ -76,9 +76,7 @@ void write_error_and_quit(GError *error) {
 extern "C" {
 
 void slick_write_to_handle(RsvgHandle *handle, unsigned char *buf, unsigned long count) {
-    std::cerr << "ENTERED slick_write_to_handle" << std::endl;
     if(not rsvg_handle_write(handle, buf, count, &error)) write_error_and_quit(error);
-    std::cerr << "EXITED slick_write_to_handle" << std::endl;
 }
 
 void slick_write_document(void *slick_state, RsvgHandle* handle);

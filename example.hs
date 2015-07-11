@@ -1,29 +1,23 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Main where
 
-import Control.Lens ((.=),(%=),(^.),(.~),makeLenses,use)
+import Control.Lens ((^.),(.=),makeLenses)
 
-import Data.Time.Clock(NominalDiffTime)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
-import System.Environment
-
 import qualified Text.XML as XML
 
-import Slick.Animation
 import Slick.Presentation
 import Slick.Render
 import Slick.SVG
 import Slick.Transition
-
-import Control.Monad.State (get,put)
-import Debug.Trace
 
 data LogoState = LogoState
     {   _logo_the :: Actor
@@ -35,7 +29,6 @@ data LogoState = LogoState
 makeLenses ''LogoState
 
 main = do
-    -- filename:_ ← getArgs
     let filename = "quantum-mechanic.svg"
     document ← XML.readFile def filename
     let defs = mkDefsFromSVG document

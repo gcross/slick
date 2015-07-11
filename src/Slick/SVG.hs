@@ -8,7 +8,7 @@
 
 module Slick.SVG where
 
-import Control.Lens ((&),(.~),(%~),(^.),Lens',makeLenses, lens, to)
+import Control.Lens ((&),(.~),(%~),(^.),Lens',makeLenses, lens)
 import Control.Monad (forM_)
 import Control.Monad.Trans.State.Strict (execState,get,put)
 
@@ -24,8 +24,6 @@ import Data.Text (Text,pack,unpack)
 import Text.XML (Document(..),Element(..),Name(..),Node(..),Prologue(..))
 
 import Slick.Transition (Interpolatable(..))
-
-import Debug.Trace
 
 parseSize :: Element → Text → Double
 parseSize Element{..} name =
