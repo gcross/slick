@@ -89,11 +89,11 @@ viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 
 data LogoState = LogoState
-    {   _logo_the :: Use
-    ,   _logo_uantum :: Use
-    ,   _logo_mechanic :: Use
-    ,   _logo_gear :: Use
-    ,   _logo_gear_tail :: Use
+    {   _logo_the :: Actor
+    ,   _logo_uantum :: Actor
+    ,   _logo_mechanic :: Actor
+    ,   _logo_gear :: Actor
+    ,   _logo_gear_tail :: Actor
     } deriving (Eq,Ord,Show)
 makeLenses ''LogoState
 

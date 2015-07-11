@@ -163,7 +163,7 @@ instance Interpolatable Double Scale where
     interpolateUnitInterval (NonPropScale _ _) (PropScale _) _ =
         error "Must interpolate between the same kind of scale.  (Not from NonPropScale to PropScale.)"
 
-data Use = Use
+data Actor = Actor
     {   useId
     ,   useParentTransform :: Text
     ,   _rotation_angle :: Double
@@ -174,13 +174,13 @@ data Use = Use
     ,   _y :: Double
     } deriving (Eq,Ord,Read,Show)
 
-makeLenses ''Use
+makeLenses ''Actor
 
-mkUse :: Text → Text → Use
-mkUse use_id parent_transform = Use use_id parent_transform 0 0 0 (PropScale 1) 0 0
+mkActor :: Text → Text → Actor
+mkActor use_id parent_transform = Actor use_id parent_transform 0 0 0 (PropScale 1) 0 0
 
-renderUse :: Use → Element
-renderUse Use{..} =
+renderUse :: Actor → Element
+renderUse Actor{..} =
     Element
         (mkName "use")
         (Map.fromList
@@ -203,7 +203,7 @@ renderUse Use{..} =
              "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")"
         )
 
-extractElementsForUse :: Document → Set Text → Map Text Use
+extractElementsForUse :: Document → Set Text → Map Text Actor
 extractElementsForUse Document{..} id_set =
     if not (Set.null remaining_id_set)
     then error $ "Some ids were not found: " ++ show (Set.toList remaining_id_set)
@@ -216,7 +216,7 @@ extractElementsForUse Document{..} id_set =
         case Map.lookup "id" elementAttributes of
             Just id'
               | Set.member id' remaining_id_set →
-                    put (Map.insert id' (mkUse id' new_transform) id_map, Set.delete id' remaining_id_set)
+                    put (Map.insert id' (mkActor id' new_transform) id_map, Set.delete id' remaining_id_set)
             _ → return ()
         forM_ [element | NodeElement element ← elementNodes] $ goElement new_transform
       where
