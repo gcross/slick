@@ -161,35 +161,43 @@ instance Interpolatable Double Scale where
     interpolateUnitInterval (NonPropScale _ _) (PropScale _) _ =
         error "Must interpolate between the same kind of scale.  (Not from NonPropScale to PropScale.)"
 
-data Actor = Actor
-    {   useId
-    ,   useParentTransform :: Text
-    ,   _rotation_angle :: Double
+data Attributes = Attributes
+    {   _rotation_angle :: Double
     ,   _rotation_x :: Double
     ,   _rotation_y :: Double
     ,   _scale :: Scale
     ,   _x :: Double
     ,   _y :: Double
     } deriving (Eq,Ord,Read,Show)
+makeLenses ''Attributes
 
+data Actor = Actor
+    {   actorId
+    ,   actorParentTransform :: Text
+    ,   _attributes :: Attributes
+    } deriving (Eq,Ord,Read,Show)
 makeLenses ''Actor
 
-mkActor :: Text → Text → Actor
-mkActor use_id parent_transform = Actor use_id parent_transform 0 0 0 (PropScale 1) 0 0
+instance Default Attributes where
+    def = Attributes 0 0 0 def 0 0
 
-renderUse :: Actor → Element
-renderUse Actor{..} =
+mkActor :: Text → Text → Actor
+mkActor actor_id parent_transform = Actor actor_id parent_transform def
+
+renderActor :: Actor → Element
+renderActor Actor{..} =
     Element
         (mkName "use")
         (Map.fromList
             [(mkName "transform",transform)
-            ,("xlink:href","#" <> useId)
+            ,("xlink:href","#" <> actorId)
             ]
         )
         []
   where
+    Attributes{..} = _attributes
     transform =
-        useParentTransform
+        actorParentTransform
         <>
         (pack $
             "scale(" ++ (
@@ -201,8 +209,8 @@ renderUse Actor{..} =
              "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")"
         )
 
-extractElementsForUse :: Document → Set Text → Map Text Actor
-extractElementsForUse Document{..} id_set =
+extractActors :: Document → Set Text → Map Text Actor
+extractActors Document{..} id_set =
     if not (Set.null remaining_id_set)
     then error $ "Some ids were not found: " ++ show (Set.toList remaining_id_set)
     else id_map
