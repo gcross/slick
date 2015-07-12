@@ -113,6 +113,7 @@ int slick_run(void *slick_state) {
                 break;
             case SDL_KEYDOWN:
                 switch(event.key.keysym.sym) {
+                    case SDLK_ESCAPE: return 0;
                     case SDLK_SPACE:
                         slick_toggle_mode(slick_state);
                         break;
