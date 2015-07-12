@@ -90,6 +90,14 @@ document_root = lens getter setter
 root_element_attributes = document_root . element_attributes
 
 transformScale scale = pack $ "scale(" ++ show scale ++ ")"
+
+transformScaleAt x y scale =
+    transformTranslate (-x*scale) (-y*scale)
+    <>
+    transformScale scale
+    <>
+    transformTranslate x y
+
 transformTranslate dx dy = pack $ "translate(" ++ show dx ++ " " ++ show dy ++ ")"
 
 groupTransform :: Text → [Element] → Element
@@ -112,7 +120,7 @@ svg header scale elements =
                 ,("width",pack . show $ width)
                 ,("height",pack . show $ height)
                 ,("viewBox",pack $ "0 0 " ++ show width ++ " " ++ show height)
-                ,("transform",transform)
+                ,("transform",transformScaleAt fixed_x fixed_y scale)
                 ]
             )
             (map NodeElement elements)
@@ -123,12 +131,6 @@ svg header scale elements =
     height = header ^. header_height * scale
     fixed_x = header ^. header_width / 2
     fixed_y = header ^. header_height / 2
-    transform =
-        transformTranslate (-width/2) (-height/2)
-        <>
-        transformScale scale
-        <>
-        transformTranslate fixed_x fixed_y
 
 mkName :: Text → Name
 mkName name = Name name Nothing Nothing
