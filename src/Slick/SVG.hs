@@ -47,11 +47,12 @@ data Attributes = Attributes
     ,   _scale :: Scale
     ,   _x :: Double
     ,   _y :: Double
+    ,   _opacity :: Double
     } deriving (Eq,Ord,Read,Show)
 makeLenses ''Attributes
 
 instance Default Attributes where
-    def = Attributes 0 0 0 def 0 0
+    def = Attributes 0 0 0 def 0 0 1
 
 data Actor = Actor
     {   actorId
@@ -117,26 +118,19 @@ document_root = lens getter setter
 
 root_element_attributes = document_root . element_attributes
 
-transformScale scale = transformNonuniformScale scale scale
-
-transformNonuniformScale scale_x scale_y = pack $ "scale(" ++ show scale_x ++ " " ++ show scale_y ++ ")"
-
-transformScaleAt x y scale = transformNonuniformScaleAt x y scale scale
-
-transformNonuniformScaleAt x y scale_x scale_y =
-    transformTranslate (-x*scale_x) (-y*scale_y)
-    <>
-    transformNonuniformScale scale_x scale_y
-    <>
-    transformTranslate x y
-
+transformScale scale = pack $ "scale(" ++ show scale ++ ")"
+transformScaleBoth scale_x scale_y = pack $ "scale(" ++ show scale_x ++ " " ++ show scale_y ++ ")"
 transformTranslate dx dy = pack $ "translate(" ++ show dx ++ " " ++ show dy ++ ")"
 
-groupTransform :: Text → [Element] → Element
-groupTransform transform elements =
+groupTransformAndStyle :: Text → Text → [Element] → Element
+groupTransformAndStyle transform style elements =
     Element
         (mkName "g")
-        (Map.singleton "transform" transform)
+        (Map.fromList
+            [(mkName "transform", transform)
+            ,(mkName "style", style)
+            ]
+        )
         (map NodeElement elements)
 
 svg :: Header → Double → [Element] → Document
@@ -152,7 +146,7 @@ svg header scale elements =
                 ,("width",pack . show $ width)
                 ,("height",pack . show $ height)
                 ,("viewBox",pack $ "0 0 " ++ show width ++ " " ++ show height)
-                ,("transform",transformScaleAt fixed_x fixed_y scale)
+                ,("transform",transform)
                 ]
             )
             (map NodeElement elements)
@@ -161,8 +155,16 @@ svg header scale elements =
   where
     width = header ^. header_width * scale
     height = header ^. header_height * scale
-    fixed_x = header ^. header_width / 2
-    fixed_y = header ^. header_height / 2
+    initial_x = header ^. header_width / 2
+    initial_y = header ^. header_height / 2
+    final_x = initial_x*scale
+    final_y = initial_y*scale
+    transform =
+        transformTranslate (-final_x) (-final_y)
+        <>
+        transformScale scale
+        <>
+        transformTranslate initial_x initial_y
 
 mkName :: Text → Name
 mkName name = Name name Nothing Nothing
@@ -208,20 +210,21 @@ renderAttributesTransform Attributes{..} = pack $
 
 
 renderActor :: Actor → Element
-renderActor Actor{..} =
+renderActor actor =
     Element
         (mkName "use")
         (Map.fromList
             [(mkName "transform",transform)
-            ,("xlink:href","#" <> actorId)
+            ,(mkName "opacity",pack . show $ actor ^. attributes . opacity)
+            ,("xlink:href","#" <> (actorId actor))
             ]
         )
         []
   where
     transform =
-        actorParentTransform
+        (actorParentTransform actor)
         <>
-        renderAttributesTransform _attributes
+        renderAttributesTransform (actor ^. attributes)
 
 extractActors :: Document → Set Text → Map Text Actor
 extractActors Document{..} id_set =

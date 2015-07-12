@@ -11,7 +11,9 @@ import Control.Lens (Lens',(^.),(.=),makeLenses)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Data.Monoid
 import qualified Data.Set as Set
+import Data.Text (pack)
 
 import qualified Text.XML as XML
 
@@ -26,6 +28,8 @@ data LogoState = LogoState
     ,   _actor_logo_mechanic :: Actor
     ,   _actor_logo_gear :: Actor
     ,   _actor_logo_gear_tail :: Actor
+    ,   _logo_squish :: Double
+    ,   _logo_opacity :: Double
     } deriving (Eq,Ord,Show)
 makeLenses ''LogoState
 
@@ -53,15 +57,28 @@ main = do
             (fromJust $ Map.lookup "logo_mechanic" actor)
             (fromJust $ Map.lookup "logo_gear" actor)
             (fromJust $ Map.lookup "logo_gear_tail" actor)
+            0
+            1
         renderToDocument scale logo_state =
             svg (document ^. header)
                 scale
                 [defs
-                ,renderActor $ logo_state ^. actor_logo_the
-                ,renderActor $ logo_state ^. actor_logo_uantum
-                ,renderActor $ logo_state ^. actor_logo_mechanic
-                ,renderActor $ logo_state ^. actor_logo_gear
-                ,renderActor $ logo_state ^. actor_logo_gear_tail
+                ,groupTransformAndStyle
+                    (if logo_state ^. logo_squish > 0
+                        then transformTranslate 512 288
+                             <>
+                             transformScaleBoth (1+logo_state ^. logo_squish) (1-logo_state ^. logo_squish)
+                             <>
+                             transformTranslate (-512) (-288)
+                        else ""
+                    )
+                    (pack $ "opacity:" ++ show (logo_state ^. logo_opacity))
+                    [renderActor $ logo_state ^. actor_logo_the
+                    ,renderActor $ logo_state ^. actor_logo_uantum
+                    ,renderActor $ logo_state ^. actor_logo_mechanic
+                    ,renderActor $ logo_state ^. actor_logo_gear
+                    ,renderActor $ logo_state ^. actor_logo_gear_tail
+                    ]
                 ]
     viewPresentation Serial initial_logo_state renderToDocument $ do
         actor_logo_the . attributes . x .= -380
@@ -78,4 +95,8 @@ main = do
             decelerateTo (logo_mechanic . y) 1 0
             decelerateTo (logo_gear . y) 1 0
             decelerateTo (logo_gear_tail . y) 1 0
-            decelerateBy (logo_gear . rotation_angle) 1 360
+            decelerateBy (logo_gear . rotation_angle) 2 360
+
+        in_ Parallel $ do
+            linearTo logo_squish 0.5 1
+            linearTo logo_opacity 0.5 0
