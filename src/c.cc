@@ -111,7 +111,7 @@ int slick_run(void *slick_state) {
                     case SDL_WINDOWEVENT_CLOSE: return 0;
                 }
                 break;
-            case SDL_KEYUP:
+            case SDL_KEYDOWN:
                 switch(event.key.keysym.sym) {
                     case SDLK_SPACE:
                         slick_toggle_mode(slick_state);
