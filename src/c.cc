@@ -65,12 +65,20 @@ struct SDL_Texture_ {
     ~SDL_Texture_() { SDL_DestroyTexture(_); }
 };
 
-const int WIDTH = 1024;
-const int HEIGHT = 576;
-
 void write_error_and_quit(GError *error) {
     std::cerr << error->message << std::endl;
     abort();
+}
+
+void fix_size(double correct_aspect_ratio, int new_width, int new_height, int &fixed_width, int &fixed_height) {
+    double new_aspect_ratio = (double)new_width / (double)new_height;
+    if(new_aspect_ratio > correct_aspect_ratio) {
+        fixed_width = new_width / new_aspect_ratio * correct_aspect_ratio;
+        fixed_height = new_height;
+    } else {
+        fixed_width = new_width;
+        fixed_height = new_height * new_aspect_ratio / correct_aspect_ratio;
+    }
 }
 
 extern "C" {
@@ -79,25 +87,27 @@ void slick_write_to_handle(RsvgHandle *handle, unsigned char *buf, unsigned long
     if(not rsvg_handle_write(handle, buf, count, &error)) write_error_and_quit(error);
 }
 
-void slick_write_document(void *slick_state, RsvgHandle* handle);
+void slick_write_document(void *slick_state, double scale, RsvgHandle* handle);
 void slick_toggle_mode(void *slick_state);
 
-int slick_run(void *slick_state) {
+int slick_run(const int initial_width, const int initial_height, void *slick_state) {
+    int width = initial_width, height = initial_height;
+    double aspect_ratio = (double)width / (double)height;
     SDL sdl;
-    SDL_Window_ window(WIDTH, HEIGHT);
+    SDL_Window_ window(width,height);
     SDL_Renderer_ renderer(window._);
     SDL_SetWindowBordered(window._, SDL_TRUE);
     while(true) {
-        CairoImageSurface cairo_surface(WIDTH, HEIGHT);
+        CairoImageSurface cairo_surface(width, height);
         CairoContext context(cairo_surface._);
         cairo_set_source_rgb(context._, 1, 1, 1);
         cairo_paint(context._);
         RsvgHandle_ handle;
-        slick_write_document(slick_state, handle._);
+        slick_write_document(slick_state, (double)width/(double)initial_width, handle._);
         GError *error;
         if(not rsvg_handle_close(handle._, &error)) write_error_and_quit(error);
         rsvg_handle_render_cairo(handle._, context._);
-        SDL_SurfaceFromData_ sdl_surface(cairo_image_surface_get_data(cairo_surface._), WIDTH, HEIGHT);
+        SDL_SurfaceFromData_ sdl_surface(cairo_image_surface_get_data(cairo_surface._), width, height);
         SDL_Texture_ texture(renderer._, sdl_surface._);
         SDL_RenderCopy(renderer._, texture._, NULL, NULL);
         SDL_RenderPresent(renderer._);
@@ -109,6 +119,12 @@ int slick_run(void *slick_state) {
             case SDL_WINDOWEVENT:
                 switch(event.window.event) {
                     case SDL_WINDOWEVENT_CLOSE: return 0;
+                    case SDL_WINDOWEVENT_RESIZED:
+                    case SDL_WINDOWEVENT_MAXIMIZED:
+                    case SDL_WINDOWEVENT_RESTORED:
+                        fix_size(aspect_ratio,event.window.data1,event.window.data2,width,height);
+                        SDL_SetWindowSize(window._,width,height);
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:

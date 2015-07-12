@@ -7,7 +7,7 @@
 
 module Slick.Render where
 
-import Control.Lens ((%=),(<%=),makeLenses,use)
+import Control.Lens ((^.),(%=),(<%=),makeLenses,use)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Strict (StateT, runStateT)
 
@@ -18,7 +18,7 @@ import Data.IORef
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
 import Foreign.C.String (CString)
-import Foreign.C.Types (CULong(..))
+import Foreign.C.Types (CDouble(..),CInt(..),CULong(..))
 import Foreign.Ptr (Ptr)
 import Foreign.StablePtr
 
@@ -27,9 +27,10 @@ import Text.XML (Document)
 
 import Slick.Animation
 import Slick.Presentation
+import Slick.SVG
 
 foreign import ccall "slick_write_to_handle" c_slick_write_to_handle :: Ptr () → CString → CULong → IO ()
-foreign import ccall "slick_run" c_slick_run :: Ptr () → IO ()
+foreign import ccall "slick_run" c_slick_run :: CInt → CInt → Ptr () → IO ()
 
 data Mode =
     RunMode UTCTime NominalDiffTime
@@ -38,24 +39,9 @@ data Mode =
 data SlickState s = SlickState
     {   _s_mode :: Mode
     ,   _s_animation_and_state :: AnimationAndState Double s
-    ,   _s_renderer :: s → Document
+    ,   _s_renderer :: Double → s → Document
     }
 makeLenses ''SlickState
-
-fixSize :: (RealFrac α, Integral β, Integral ɣ) ⇒ α → β → β → (ɣ, ɣ)
-fixSize correct_aspect_ratio width height = (fixed_width, fixed_height)
-  where
-    width_f = fromIntegral width
-    height_f = fromIntegral height
-    current_aspect_ratio = width_f/height_f
-    fixed_width = round $
-        if current_aspect_ratio > correct_aspect_ratio
-        then width_f / current_aspect_ratio * correct_aspect_ratio
-        else width_f
-    fixed_height = round $
-        if current_aspect_ratio < correct_aspect_ratio
-        then height_f * current_aspect_ratio / correct_aspect_ratio
-        else height_f
 
 withState :: Ptr () → StateT (SlickState s) IO α → IO α
 withState state_ptr action = do
@@ -65,10 +51,10 @@ withState state_ptr action = do
     writeIORef state_ref new_state
     return result
 
-foreign export ccall slick_write_document :: Ptr () → Ptr () → IO ()
+foreign export ccall slick_write_document :: Ptr () → CDouble → Ptr () → IO ()
 
-slick_write_document :: Ptr () → Ptr () → IO ()
-slick_write_document state_ptr rsvg_handle = withState state_ptr $ do
+slick_write_document :: Ptr () → CDouble → Ptr () → IO ()
+slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
     mode ← use s_mode
     time ← liftIO $ case mode of
         RunMode starting_time additional_time → do
@@ -77,7 +63,7 @@ slick_write_document state_ptr rsvg_handle = withState state_ptr $ do
         PauseMode time → return . realToFrac $ time
     AnimationAndState _ new_state ← s_animation_and_state <%= runAnimationAndState time
     renderer ← use s_renderer
-    let document = renderer new_state
+    let document = renderer (realToFrac scale) new_state
         consumer = do
             mbs ← await
             case mbs of
@@ -87,6 +73,7 @@ slick_write_document state_ptr rsvg_handle = withState state_ptr $ do
                         c_slick_write_to_handle rsvg_handle ptr (fromIntegral $ BS.length bs))
                     consumer
     runConduit $ XML.renderBytes def document =$= consumer
+    liftIO $ XML.writeFile def "test.svg" document
 
 foreign export ccall slick_toggle_mode :: Ptr () → IO ()
 
@@ -100,15 +87,18 @@ slick_toggle_mode state_ptr = withState state_ptr $ do
             PauseMode additional_time → RunMode current_time additional_time
       )
 
-viewAnimation :: AnimationAndState Double s → (s → Document) → IO ()
+viewAnimation :: AnimationAndState Double s → (Double → s → Document) → IO ()
 viewAnimation animation_and_state render = do
     starting_time ← getCurrentTime
-    state_ref ← newIORef $ SlickState (PauseMode 0.0000001) animation_and_state render
+    let initial_state = SlickState (PauseMode 0.0000001) animation_and_state render
+        initial_document = render 1 $ animation_and_state ^. as_state
+        Header initial_width initial_height = initial_document ^. header
+    state_ref ← newIORef initial_state
     state_ref_ptr ← newStablePtr state_ref
-    c_slick_run . castStablePtrToPtr $ state_ref_ptr
+    c_slick_run (round initial_width) (round initial_height) . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
 
-viewPresentation :: CombinationMode → s → (s → Document) → Presentation Double s () → IO ()
+viewPresentation :: CombinationMode → s → (Double → s → Document) → Presentation Double s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 

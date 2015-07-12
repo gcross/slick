@@ -13,6 +13,7 @@ import Control.Monad (forM_)
 import Control.Monad.Trans.State.Strict (execState,get,put)
 
 import Data.Attoparsec.Text (Parser, choice, double, endOfInput, parseOnly, string)
+import Data.Default (Default(..))
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
@@ -88,25 +89,18 @@ document_root = lens getter setter
 
 root_element_attributes = document_root . element_attributes
 
-scaleDocument :: Double → Document → Document
-scaleDocument scale document =
-    (header .~ Header (width*scale) (height*scale))
-    .
-    (document_root . elementAttribute "transform" %~
-        (\old_transform → old_transform
-            <> (pack $ "scale(" ++ show scale ++ ")")
-            <> (pack $ "translate(" ++ show (-dx) ++ " " ++ show (-dy) ++ ")")
-        )
-    )
-    $
-    document
-  where
-    Header width height = document ^. header
-    dx = width*(scale-1)/2
-    dy = height*(scale-1)/2
+transformScale scale = pack $ "scale(" ++ show scale ++ ")"
+transformTranslate dx dy = pack $ "translate(" ++ show dx ++ " " ++ show dy ++ ")"
 
-svg :: Header → [Element] → Document
-svg header elements =
+groupTransform :: Text → [Element] → Element
+groupTransform transform elements =
+    Element
+        (mkName "g")
+        (Map.singleton "transform" transform)
+        (map NodeElement elements)
+
+svg :: Header → Double → [Element] → Document
+svg header scale elements =
     Document
         (Prologue [] Nothing [])
         (Element
@@ -115,18 +109,26 @@ svg header elements =
                 [("xmlns","http://www.w3.org/2000/svg")
                 ,("xmlns:xlink","http://www.w3.org/1999/xlink")
                 ,("version","1.1")
-                ,("width",pack . show $ (header ^. header_width))
-                ,("height",pack . show $ (header ^. header_height))
-                ,("viewBox",pack $ "0 0 " ++
-                    show (header ^. header_width) ++
-                    " " ++
-                    show (header ^. header_height)
-                 )
+                ,("width",pack . show $ width)
+                ,("height",pack . show $ height)
+                ,("viewBox",pack $ "0 0 " ++ show width ++ " " ++ show height)
+                ,("transform",transform)
                 ]
             )
             (map NodeElement elements)
         )
         []
+  where
+    width = header ^. header_width * scale
+    height = header ^. header_height * scale
+    fixed_x = header ^. header_width / 2
+    fixed_y = header ^. header_height / 2
+    transform =
+        transformTranslate (-width/2) (-height/2)
+        <>
+        transformScale scale
+        <>
+        transformTranslate fixed_x fixed_y
 
 mkName :: Text → Name
 mkName name = Name name Nothing Nothing
@@ -150,6 +152,9 @@ data Scale =
     PropScale Double
   | NonPropScale Double Double
   deriving (Eq,Ord,Read,Show)
+
+instance Default Scale where
+    def = PropScale 1
 
 instance Interpolatable Double Scale where
     interpolateUnitInterval (PropScale before) (PropScale after) t =
@@ -184,6 +189,17 @@ instance Default Attributes where
 mkActor :: Text → Text → Actor
 mkActor actor_id parent_transform = Actor actor_id parent_transform def
 
+renderAttributesTransform :: Attributes → Text
+renderAttributesTransform Attributes{..} = pack $
+    "scale(" ++ (
+        case _scale of
+            PropScale scale → show scale
+            NonPropScale x y → show x ++ " " ++ show y
+     ) ++ ")" ++
+     "translate(" ++ show _x ++ " " ++ show _y ++ ")" ++
+     "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")"
+
+
 renderActor :: Actor → Element
 renderActor Actor{..} =
     Element
@@ -195,19 +211,10 @@ renderActor Actor{..} =
         )
         []
   where
-    Attributes{..} = _attributes
     transform =
         actorParentTransform
         <>
-        (pack $
-            "scale(" ++ (
-                case _scale of
-                    PropScale scale → show scale
-                    NonPropScale x y → show x ++ " " ++ show y
-             ) ++ ")" ++
-             "translate(" ++ show _x ++ " " ++ show _y ++ ")" ++
-             "rotate(" ++ show _rotation_angle ++ " " ++ show _rotation_x ++ " " ++ show _rotation_y ++ ")"
-        )
+        renderAttributesTransform _attributes
 
 extractActors :: Document → Set Text → Map Text Actor
 extractActors Document{..} id_set =

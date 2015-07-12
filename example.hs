@@ -53,9 +53,9 @@ main = do
             (fromJust $ Map.lookup "logo_mechanic" actor)
             (fromJust $ Map.lookup "logo_gear" actor)
             (fromJust $ Map.lookup "logo_gear_tail" actor)
-        renderToDocument logo_state =
+        renderToDocument scale logo_state =
             svg (document ^. header)
-                1
+                scale
                 [defs
                 ,renderActor $ logo_state ^. actor_logo_the
                 ,renderActor $ logo_state ^. actor_logo_uantum
