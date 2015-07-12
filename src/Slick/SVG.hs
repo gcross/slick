@@ -26,6 +26,40 @@ import Text.XML (Document(..),Element(..),Name(..),Node(..),Prologue(..))
 
 import Slick.Transition (Interpolatable(..))
 
+data Header = Header
+    {   _header_width :: Double
+    ,   _header_height :: Double
+    }
+makeLenses ''Header
+
+data Scale =
+    PropScale Double
+  | NonPropScale Double Double
+  deriving (Eq,Ord,Read,Show)
+
+instance Default Scale where
+    def = PropScale 1
+
+data Attributes = Attributes
+    {   _rotation_angle :: Double
+    ,   _rotation_x :: Double
+    ,   _rotation_y :: Double
+    ,   _scale :: Scale
+    ,   _x :: Double
+    ,   _y :: Double
+    } deriving (Eq,Ord,Read,Show)
+makeLenses ''Attributes
+
+instance Default Attributes where
+    def = Attributes 0 0 0 def 0 0
+
+data Actor = Actor
+    {   actorId
+    ,   actorParentTransform :: Text
+    ,   _attributes :: Attributes
+    } deriving (Eq,Ord,Read,Show)
+makeLenses ''Actor
+
 parseSize :: Element → Text → Double
 parseSize Element{..} name =
     case parseOnly size_parser (fromMaybe (error $ unpack name ++" field does not exist.") $ Map.lookup (Name name Nothing Nothing) elementAttributes) of
@@ -44,12 +78,6 @@ size_parser =
                 ,endOfInput >> return 1
                 ]
 
-
-data Header = Header
-    {   _header_width :: Double
-    ,   _header_height :: Double
-    }
-makeLenses ''Header
 
 element_attributes :: Lens' Element (Map Name Text)
 element_attributes = lens getter setter
@@ -89,12 +117,16 @@ document_root = lens getter setter
 
 root_element_attributes = document_root . element_attributes
 
-transformScale scale = pack $ "scale(" ++ show scale ++ ")"
+transformScale scale = transformNonuniformScale scale scale
 
-transformScaleAt x y scale =
-    transformTranslate (-x*scale) (-y*scale)
+transformNonuniformScale scale_x scale_y = pack $ "scale(" ++ show scale_x ++ " " ++ show scale_y ++ ")"
+
+transformScaleAt x y scale = transformNonuniformScaleAt x y scale scale
+
+transformNonuniformScaleAt x y scale_x scale_y =
+    transformTranslate (-x*scale_x) (-y*scale_y)
     <>
-    transformScale scale
+    transformNonuniformScale scale_x scale_y
     <>
     transformTranslate x y
 
@@ -150,14 +182,6 @@ extractElementsFromAllSVG = concat . map extractElementsFromSVG
 mkDefsFromAllSVG :: [Document] → Element
 mkDefsFromAllSVG = mkDefs . extractElementsFromAllSVG
 
-data Scale =
-    PropScale Double
-  | NonPropScale Double Double
-  deriving (Eq,Ord,Read,Show)
-
-instance Default Scale where
-    def = PropScale 1
-
 instance Interpolatable Double Scale where
     interpolateUnitInterval (PropScale before) (PropScale after) t =
         PropScale (interpolateUnitInterval before after t)
@@ -168,25 +192,6 @@ instance Interpolatable Double Scale where
     interpolateUnitInterval (NonPropScale _ _) (PropScale _) _ =
         error "Must interpolate between the same kind of scale.  (Not from NonPropScale to PropScale.)"
 
-data Attributes = Attributes
-    {   _rotation_angle :: Double
-    ,   _rotation_x :: Double
-    ,   _rotation_y :: Double
-    ,   _scale :: Scale
-    ,   _x :: Double
-    ,   _y :: Double
-    } deriving (Eq,Ord,Read,Show)
-makeLenses ''Attributes
-
-data Actor = Actor
-    {   actorId
-    ,   actorParentTransform :: Text
-    ,   _attributes :: Attributes
-    } deriving (Eq,Ord,Read,Show)
-makeLenses ''Actor
-
-instance Default Attributes where
-    def = Attributes 0 0 0 def 0 0
 
 mkActor :: Text → Text → Actor
 mkActor actor_id parent_transform = Actor actor_id parent_transform def
