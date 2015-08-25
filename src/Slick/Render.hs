@@ -73,7 +73,6 @@ slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
                         c_slick_write_to_handle rsvg_handle ptr (fromIntegral $ BS.length bs))
                     consumer
     runConduit $ XML.renderBytes def document =$= consumer
-    liftIO $ XML.writeFile def "test.svg" document
 
 foreign export ccall slick_toggle_mode :: Ptr () → IO ()
 
