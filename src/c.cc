@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cairo.h>
 #include <glib-object.h>
 #include <iostream>
@@ -13,15 +14,51 @@ struct SDL {
 
 struct SDL_Window_ {
     SDL_Window *_;
-    SDL_Window_(int width, int height) :
+
+private:
+    bool is_full_screen;
+    int window_x, window_y, window_width, window_height;
+
+public:
+    SDL_Window_(int window_width, int window_height) :
         _(SDL_CreateWindow(
             "Hello, world!",
             SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-            width, height,
+            window_width, window_height,
             SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
-        ))
+        )),
+        is_full_screen(false),
+        window_x(-1),
+        window_y(-1),
+        window_width(-1),
+        window_height(-1)
     {}
+
     ~SDL_Window_() { SDL_DestroyWindow(_); }
+
+    void ToggleFullScreen() {
+        if (is_full_screen) {
+            assert(window_x >= 0);
+            assert(window_y >= 0);
+            assert(window_width > 0);
+            assert(window_height > 0);
+            SDL_SetWindowFullscreen(_, 0);
+            SDL_SetWindowSize(_, window_width, window_height);
+            SDL_SetWindowPosition(_, window_x, window_y);
+            window_x = -1;
+            window_y = -1;
+            window_width = -1;
+            window_height = -1;
+        } else {
+            SDL_GetWindowPosition(_, &window_x, &window_y);
+            SDL_GetWindowSize(_, &window_width, &window_height);
+            SDL_DisplayMode mode;
+            SDL_GetCurrentDisplayMode(0, &mode);
+            SDL_SetWindowSize(_, mode.w, mode.h);
+            SDL_SetWindowFullscreen(_, SDL_WINDOW_FULLSCREEN);
+        }
+        is_full_screen = not is_full_screen;
+    }
 };
 
 struct SDL_Renderer_ {
@@ -95,6 +132,7 @@ int slick_run(const int initial_width, const int initial_height, void *slick_sta
     double aspect_ratio = (double)width / (double)height;
     SDL sdl;
     SDL_Window_ window(width,height);
+    // window.ToggleFullScreen();
     SDL_Renderer_ renderer(window._);
     SDL_SetWindowBordered(window._, SDL_TRUE);
     while(true) {
@@ -130,9 +168,8 @@ int slick_run(const int initial_width, const int initial_height, void *slick_sta
             case SDL_KEYDOWN:
                 switch(event.key.keysym.sym) {
                     case SDLK_ESCAPE: return 0;
-                    case SDLK_SPACE:
-                        slick_toggle_mode(slick_state);
-                        break;
+                    case SDLK_SPACE: slick_toggle_mode(slick_state); break;
+                    case SDLK_f: window.ToggleFullScreen(); break;
                 }
         }
     }
