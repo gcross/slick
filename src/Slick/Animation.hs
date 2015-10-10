@@ -19,7 +19,7 @@ import Data.IORef (IORef, readIORef, writeIORef)
 data Animation t s = ∀ ɣ. Animation
     { animationDuration :: t
     , animationCache :: ɣ
-    , animationFunction :: t → (s → ɣ → (s, ɣ))
+    , animationFunction :: t → s → ɣ → (s, ɣ)
     }
 
 promoteAnimation :: Lens' s s' → Animation t s' → Animation t s
@@ -120,7 +120,7 @@ moveRight state (AnimationZipper left (right:rest) current left_time) = (new_sta
 serial :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
 serial [] = null_animation
 serial [animation] = animation
-serial animations@(first:rest) = clampAnimation $ Animation{..}
+serial animations@(first:rest) = clampAnimation Animation{..}
   where
     animationDuration = sum . map durationOf $ animations
 

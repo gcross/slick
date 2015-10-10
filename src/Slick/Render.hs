@@ -69,8 +69,8 @@ slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
             case mbs of
                 Nothing → return ()
                 Just bs → do
-                    (liftIO . BS.useAsCString bs $ \ptr →
-                        c_slick_write_to_handle rsvg_handle ptr (fromIntegral $ BS.length bs))
+                    liftIO . BS.useAsCString bs $ \ptr →
+                        c_slick_write_to_handle rsvg_handle ptr (fromIntegral $ BS.length bs)
                     consumer
     runConduit $ XML.renderBytes def document =$= consumer
 

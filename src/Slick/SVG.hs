@@ -179,7 +179,7 @@ mkDefsFromSVG :: Document → Element
 mkDefsFromSVG = mkDefs . extractElementsFromSVG
 
 extractElementsFromAllSVG :: [Document] → [Element]
-extractElementsFromAllSVG = concat . map extractElementsFromSVG
+extractElementsFromAllSVG = concatMap extractElementsFromSVG
 
 mkDefsFromAllSVG :: [Document] → Element
 mkDefsFromAllSVG = mkDefs . extractElementsFromAllSVG
@@ -216,13 +216,13 @@ renderActor actor =
         (Map.fromList
             [(mkName "transform",transform)
             ,(mkName "opacity",pack . show $ actor ^. attributes . opacity)
-            ,("xlink:href","#" <> (actorId actor))
+            ,("xlink:href","#" <> actorId actor)
             ]
         )
         []
   where
     transform =
-        (actorParentTransform actor)
+        actorParentTransform actor
         <>
         renderAttributesTransform (actor ^. attributes)
 

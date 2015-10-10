@@ -56,7 +56,7 @@ clampTransition transition t
   | otherwise = transition t
 
 linear_transition :: Timelike t ⇒ Transition t
-linear_transition = clampTransition $ id
+linear_transition = clampTransition id
 
 linearFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
 linearFromTo = easeFromTo linear_transition

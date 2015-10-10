@@ -61,8 +61,8 @@ appendAnimation animation = do
             Serial → (+) animation_duration
             Parallel → max animation_duration
     p_time %= (+ animation_duration)
-    p_state %= fst . (runAnimation animation animation_duration)
-    p_animations %= (flip DList.snoc animation)
+    p_state %= fst . runAnimation animation animation_duration
+    p_animations %= flip DList.snoc animation
 
 runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → (α, AnimationAndState t s)
 runPresentationIn combination_mode initial_state action = (final_value, AnimationAndState animation initial_state)
