@@ -15,6 +15,8 @@ import Control.Monad.Trans.State (State,get,runState,state)
 import Data.Composition ((.**))
 import Data.DList (DList)
 import qualified Data.DList as DList
+import qualified Data.Set as Set
+import Data.Set (Set)
 
 import Slick.Animation
 
@@ -26,6 +28,7 @@ data InnerPresentationMState t s = InnerPresentationMState
     , _ip_time :: t
     , _ip_state :: s
     , _ip_animations :: DList (Animation t s)
+    , _ip_pauses :: Set t
     }
 makeLenses ''InnerPresentationMState
 
@@ -33,6 +36,12 @@ newtype PresentationM t s α = PresentationM {unwrapPresentation :: InnerPresent
   deriving (Applicative,Functor,Monad)
 
 type InnerPresentationM t s = State (InnerPresentationMState t s)
+
+data Presentation t s = Presentation
+    { _p_animation_and_state :: AnimationAndState t s
+    , _p_pauses :: [t]
+    }
+makeLenses ''Presentation
 
 instance Timelike t ⇒ State.MonadState s (PresentationM t s) where
     get = PresentationM $ use ip_state
@@ -46,7 +55,7 @@ instance Timelike t ⇒ State.MonadState s (PresentationM t s) where
           where
             old_state' = old_state ^. ip_state
             (value, new_state') = act old_state'
-            new_state = InnerPresentationMState Serial 0 0 new_state' (DList.singleton $ instantaneousAnimation old_state' new_state')
+            new_state = InnerPresentationMState Serial 0 0 new_state' (DList.singleton $ instantaneousAnimation old_state' new_state') Set.empty
 
 combineAnimationsUsing :: Timelike t ⇒ CombinationMode → [Animation t s] → Animation t s
 combineAnimationsUsing Serial = serial
@@ -64,10 +73,10 @@ appendAnimation animation = do
     ip_state %= fst . runAnimation animation animation_duration
     ip_animations %= flip DList.snoc animation
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → (α, AnimationAndState t s)
-runPresentationIn combination_mode initial_state action = (final_value, AnimationAndState animation initial_state)
+runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → (α, Presentation t s)
+runPresentationIn combination_mode initial_state action = (final_value, Presentation (AnimationAndState animation initial_state) pauses)
   where
-    (final_value,final_animation_state) =
+    (final_value,final_presentation_state) =
         runState action $
             InnerPresentationMState
                 combination_mode
@@ -75,12 +84,14 @@ runPresentationIn combination_mode initial_state action = (final_value, Animatio
                 0
                 initial_state
                 DList.empty
+                Set.empty
     animation =
         combineAnimationsUsing
             combination_mode
-            (DList.toList $ final_animation_state ^. ip_animations)
+            (DList.toList $ final_presentation_state ^. ip_animations)
+    pauses = Set.toList . Set.insert (durationOf animation) . Set.insert 0 . (^. ip_pauses) $ final_presentation_state
 
-execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → AnimationAndState t s
+execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → Presentation t s
 execPresentationIn = snd .** runPresentationIn
 
 within :: Timelike t ⇒ Lens' s s' → InnerPresentationM t s' α → InnerPresentationM t s α

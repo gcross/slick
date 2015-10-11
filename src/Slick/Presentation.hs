@@ -2,9 +2,12 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.Presentation
-    (PresentationM
+    (Presentation
+    ,PresentationM
     ,CombinationMode(..)
     ,Timelike
+    ,p_animation_and_state
+    ,p_pauses
     ,appendAnimation
     ,runPresentationIn
     ,execPresentationIn
@@ -29,11 +32,11 @@ import qualified Slick.Presentation.Internal as Internal
 appendAnimation :: Timelike t ⇒ Animation t s → PresentationM t s ()
 appendAnimation = PresentationM . Internal.appendAnimation
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → (α, AnimationAndState t s)
+runPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → (α, Presentation t s)
 runPresentationIn combination_mode initial_state =
     Internal.runPresentationIn combination_mode initial_state . unwrapPresentation
 
-execPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → AnimationAndState t s
+execPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Presentation t s
 execPresentationIn combination_mode initial_state =
     Internal.execPresentationIn combination_mode initial_state . unwrapPresentation
 

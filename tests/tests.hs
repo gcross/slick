@@ -28,7 +28,7 @@ import Slick.Presentation
 import Slick.Transition
 
 runAndReturnAnimation :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Animation t s
-runAndReturnAnimation = (^. as_animation) .** execPresentationIn
+runAndReturnAnimation = (^. (p_animation_and_state . as_animation)) .** execPresentationIn
 
 testAnimationsEqual :: (Timelike t, Random t, Show t, Eq s, Show s) ⇒ String → s → Animation t s → Animation t s → Test.Framework.Test
 testAnimationsEqual label initial_state correct_animation actual_animation =
