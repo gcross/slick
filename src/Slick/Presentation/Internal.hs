@@ -83,9 +83,6 @@ runPresentationIn combination_mode initial_state action = (final_value, Animatio
 execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → AnimationAndState t s
 execPresentationIn = snd .** runPresentationIn
 
-execPresentationIn' :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → Animation t s
-execPresentationIn' = (^. as_animation) .** execPresentationIn
-
 within :: Timelike t ⇒ Lens' s s' → InnerPresentationM t s' α → InnerPresentationM t s α
 within lens action = do
     old_state ← get

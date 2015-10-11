@@ -54,7 +54,8 @@ Test-suite tests
     Build-depends:
         slick,
         base,
-        HUnit == 1.2.*,
+        composition == 1.0.*,
+        HUnit >= 1.2 && < 1.4,
         lens >= 4.9 && < 5,
         random == 1.*,
         test-framework == 0.8.*,

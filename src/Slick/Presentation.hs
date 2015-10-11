@@ -8,7 +8,6 @@ module Slick.Presentation
     ,appendAnimation
     ,runPresentationIn
     ,execPresentationIn
-    ,execPresentationIn'
     ,within
     ,in_
     )
@@ -37,10 +36,6 @@ runPresentationIn combination_mode initial_state =
 execPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → AnimationAndState t s
 execPresentationIn combination_mode initial_state =
     Internal.execPresentationIn combination_mode initial_state . unwrapPresentation
-
-execPresentationIn' :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Animation t s
-execPresentationIn' combination_mode initial_state =
-    Internal.execPresentationIn' combination_mode initial_state . unwrapPresentation
 
 within :: Timelike t ⇒ Lens' s s' → PresentationM t s' α → PresentationM t s α
 within lens (PresentationM action) = PresentationM $ Internal.within lens action

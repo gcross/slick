@@ -5,8 +5,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
-import Control.Lens (_1, _2, _3, (.~), (%~), simple)
+import Control.Lens (_1, _2, _3, (.~), (%~), (^.), simple)
 
+import Data.Composition ((.**))
 import Data.List (intercalate)
 import Data.Function (on)
 
@@ -25,6 +26,9 @@ import Test.QuickCheck
 import Slick.Animation
 import Slick.Presentation
 import Slick.Transition
+
+runAndReturnAnimation :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Animation t s
+runAndReturnAnimation = (^. as_animation) .** execPresentationIn
 
 testAnimationsEqual :: (Timelike t, Random t, Show t, Eq s, Show s) ⇒ String → s → Animation t s → Animation t s → Test.Framework.Test
 testAnimationsEqual label initial_state correct_animation actual_animation =
@@ -186,31 +190,31 @@ tests =
             ]
         ]
     ,testGroup "Slick.Presentation"
-        [testGroup "execPresentationIn'"
+        [testGroup "runAndReturnAnimation"
             [testGroup "return ()"
                 [testCase "serial" $
-                    durationOf (execPresentationIn' Serial () (return ())) @?= 0
+                    durationOf (runAndReturnAnimation Serial () (return ())) @?= 0
                 ,testCase "parallel" $
-                    durationOf (execPresentationIn' Parallel () (return ())) @?= 0
+                    durationOf (runAndReturnAnimation Parallel () (return ())) @?= 0
                 ]
             ,testGroup "single animation"
                 [testAnimationsEqual "serial" (0::Float)
                     test_animation
-                    (execPresentationIn' Serial (0::Float) (appendAnimation test_animation))
+                    (runAndReturnAnimation Serial (0::Float) (appendAnimation test_animation))
                 ,testAnimationsEqual "parallel" (0::Float)
                     test_animation
-                    (execPresentationIn' Parallel (0::Float) (appendAnimation test_animation) )
+                    (runAndReturnAnimation Parallel (0::Float) (appendAnimation test_animation) )
                 ]
             ,testGroup "two animations"
                 [testAnimationsEqual "serial" (0::Float)
                     (serial [test_animation,test_animation2])
-                    (execPresentationIn' Serial (0::Float) $ do
+                    (runAndReturnAnimation Serial (0::Float) $ do
                         appendAnimation test_animation
                         appendAnimation test_animation2
                     )
                 ,testAnimationsEqual "parallel" (0::Float,0::Float)
                     (parallel [test_tuple_animation,test_tuple_animation2])
-                    (execPresentationIn' Parallel (0::Float,0::Float) $ do
+                    (runAndReturnAnimation Parallel (0::Float,0::Float) $ do
                         appendAnimation test_tuple_animation
                         appendAnimation test_tuple_animation2
                     )
@@ -226,7 +230,7 @@ tests =
             ]
         ,testAnimationsEqual "linearFromTo" (0::Float)
             (statelessAnimation (2::Float) $ \t → t)
-            (execPresentationIn' Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
+            (runAndReturnAnimation Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
         ]
     ]
 
