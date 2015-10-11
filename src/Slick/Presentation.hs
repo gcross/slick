@@ -2,7 +2,7 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
 module Slick.Presentation
-    (Presentation
+    (PresentationM
     ,CombinationMode(..)
     ,Timelike
     ,appendAnimation
@@ -27,23 +27,23 @@ import Slick.Presentation.Internal hiding
     )
 import qualified Slick.Presentation.Internal as Internal
 
-appendAnimation :: Timelike t ⇒ Animation t s → Presentation t s ()
-appendAnimation = Presentation . Internal.appendAnimation
+appendAnimation :: Timelike t ⇒ Animation t s → PresentationM t s ()
+appendAnimation = PresentationM . Internal.appendAnimation
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → Presentation t s α → (α, AnimationAndState t s)
+runPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → (α, AnimationAndState t s)
 runPresentationIn combination_mode initial_state =
     Internal.runPresentationIn combination_mode initial_state . unwrapPresentation
 
-execPresentationIn :: Timelike t ⇒ CombinationMode → s → Presentation t s α → AnimationAndState t s
+execPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → AnimationAndState t s
 execPresentationIn combination_mode initial_state =
     Internal.execPresentationIn combination_mode initial_state . unwrapPresentation
 
-execPresentationIn' :: Timelike t ⇒ CombinationMode → s → Presentation t s α → Animation t s
+execPresentationIn' :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Animation t s
 execPresentationIn' combination_mode initial_state =
     Internal.execPresentationIn' combination_mode initial_state . unwrapPresentation
 
-within :: Timelike t ⇒ Lens' s s' → Presentation t s' α → Presentation t s α
-within lens (Presentation action) = Presentation $ Internal.within lens action
+within :: Timelike t ⇒ Lens' s s' → PresentationM t s' α → PresentationM t s α
+within lens (PresentationM action) = PresentationM $ Internal.within lens action
 
-in_ :: Timelike t ⇒ CombinationMode → Presentation t s α → Presentation t s α
-in_ combination_mode (Presentation action) = Presentation $ Internal.in_ combination_mode action
+in_ :: Timelike t ⇒ CombinationMode → PresentationM t s α → PresentationM t s α
+in_ combination_mode (PresentationM action) = PresentationM $ Internal.in_ combination_mode action

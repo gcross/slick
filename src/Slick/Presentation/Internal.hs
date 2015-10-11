@@ -20,39 +20,39 @@ import Slick.Animation
 
 data CombinationMode = Serial | Parallel deriving (Show, Eq)
 
-data PresentationState t s = PresentationState
+data PresentationMState t s = PresentationMState
     { _p_combination_mode :: CombinationMode
     , _p_duration :: t
     , _p_time :: t
     , _p_state :: s
     , _p_animations :: DList (Animation t s)
     }
-makeLenses ''PresentationState
+makeLenses ''PresentationMState
 
-newtype Presentation t s α = Presentation {unwrapPresentation :: InnerPresentation t s α}
+newtype PresentationM t s α = PresentationM {unwrapPresentation :: InnerPresentationM t s α}
   deriving (Applicative,Functor,Monad)
 
-type InnerPresentation t s = State (PresentationState t s)
+type InnerPresentationM t s = State (PresentationMState t s)
 
-instance Timelike t ⇒ State.MonadState s (Presentation t s) where
-    get = Presentation $ use p_state
-    put s = Presentation $ do
+instance Timelike t ⇒ State.MonadState s (PresentationM t s) where
+    get = PresentationM $ use p_state
+    put s = PresentationM $ do
         old_s ← use p_state
         appendAnimation $ instantaneousAnimation old_s s
         p_state .= s
-    state act = Presentation $ state act'
+    state act = PresentationM $ state act'
       where
         act' old_state = (value, new_state)
           where
             old_state' = old_state ^. p_state
             (value, new_state') = act old_state'
-            new_state = PresentationState Serial 0 0 new_state' (DList.singleton $ instantaneousAnimation old_state' new_state')
+            new_state = PresentationMState Serial 0 0 new_state' (DList.singleton $ instantaneousAnimation old_state' new_state')
 
 combineAnimationsUsing :: Timelike t ⇒ CombinationMode → [Animation t s] → Animation t s
 combineAnimationsUsing Serial = serial
 combineAnimationsUsing Parallel = parallel
 
-appendAnimation :: Timelike t ⇒ Animation t s → InnerPresentation t s ()
+appendAnimation :: Timelike t ⇒ Animation t s → InnerPresentationM t s ()
 appendAnimation animation = do
     combination_mode ← use p_combination_mode
     let animation_duration = durationOf animation
@@ -64,12 +64,12 @@ appendAnimation animation = do
     p_state %= fst . runAnimation animation animation_duration
     p_animations %= flip DList.snoc animation
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → (α, AnimationAndState t s)
+runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → (α, AnimationAndState t s)
 runPresentationIn combination_mode initial_state action = (final_value, AnimationAndState animation initial_state)
   where
     (final_value,final_animation_state) =
         runState action $
-            PresentationState
+            PresentationMState
                 combination_mode
                 0
                 0
@@ -80,13 +80,13 @@ runPresentationIn combination_mode initial_state action = (final_value, Animatio
             combination_mode
             (DList.toList $ final_animation_state ^. p_animations)
 
-execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → AnimationAndState t s
+execPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → AnimationAndState t s
 execPresentationIn = snd .** runPresentationIn
 
-execPresentationIn' :: Timelike t ⇒ CombinationMode → s → InnerPresentation t s α → Animation t s
+execPresentationIn' :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → Animation t s
 execPresentationIn' = (^. as_animation) .** execPresentationIn
 
-within :: Timelike t ⇒ Lens' s s' → InnerPresentation t s' α → InnerPresentation t s α
+within :: Timelike t ⇒ Lens' s s' → InnerPresentationM t s' α → InnerPresentationM t s α
 within lens action = do
     old_state ← get
     let (result,new_state) =
@@ -100,7 +100,7 @@ within lens action = do
         combineAnimationsUsing (old_state ^. p_combination_mode) (DList.toList $ new_state ^. p_animations)
     return result
 
-in_ :: Timelike t ⇒ CombinationMode → InnerPresentation t s α → InnerPresentation t s α
+in_ :: Timelike t ⇒ CombinationMode → InnerPresentationM t s α → InnerPresentationM t s α
 in_ combination_mode action = do
     old_state ← get
     let (result,new_state) =

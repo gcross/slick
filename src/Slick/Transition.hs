@@ -26,24 +26,24 @@ easeAnimation transition lens duration start end = clampAnimation $
 
 type Transition t = t → t
 
-easeFromTo :: ∀ t s s'. (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → Presentation t s ()
+easeFromTo :: ∀ t s s'. (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → s' → PresentationM t s ()
 easeFromTo transition lens duration start end = appendAnimation animation
   where
     animation :: Animation t s
     animation = easeAnimation transition lens duration start end
 
-easeTo :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → Presentation t s ()
+easeTo :: (Timelike t, Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → PresentationM t s ()
 easeTo transition lens duration end = do
     start ← use lens
     easeFromTo transition lens duration start end
 
-easeBy :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → Presentation t s ()
+easeBy :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → PresentationM t s ()
 easeBy transition lens duration difference = do
     start ← use lens
     let end = start + difference
     easeFromTo transition lens duration start end
 
-easeByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → Presentation t s ()
+easeByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒ (t → t) → Lens' s s' → t → s' → PresentationM t s ()
 easeByFactor transition lens duration factor = do
     start ← use lens
     let end = start * factor
@@ -58,59 +58,59 @@ clampTransition transition t
 linear_transition :: Timelike t ⇒ Transition t
 linear_transition = clampTransition id
 
-linearFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
+linearFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → PresentationM t s ()
 linearFromTo = easeFromTo linear_transition
 
-linearTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → Presentation t s ()
+linearTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → PresentationM t s ()
 linearTo = easeTo linear_transition
 
-linearBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+linearBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 linearBy = easeBy linear_transition
 
-linearByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+linearByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 linearByFactor = easeByFactor linear_transition
 
 smooth_transition :: Timelike t ⇒ Transition t
 smooth_transition = clampTransition $ \t → sin(pi*t/2)**2
 
-smoothFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
+smoothFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → PresentationM t s ()
 smoothFromTo = easeFromTo smooth_transition
 
-smoothTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → Presentation t s ()
+smoothTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → PresentationM t s ()
 smoothTo = easeTo smooth_transition
 
-smoothBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+smoothBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 smoothBy = easeBy smooth_transition
 
-smoothByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+smoothByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 smoothByFactor = easeByFactor smooth_transition
 
 decelerate_transition :: Timelike t ⇒ Transition t
 decelerate_transition = clampTransition $ \t → sin(pi*t/2)
 
-decelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
+decelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → PresentationM t s ()
 decelerateFromTo = easeFromTo decelerate_transition
 
-decelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → Presentation t s ()
+decelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → PresentationM t s ()
 decelerateTo = easeTo decelerate_transition
 
-decelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+decelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 decelerateBy = easeBy decelerate_transition
 
-decelerateByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+decelerateByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 decelerateByFactor = easeByFactor decelerate_transition
 
 accelerate_transition :: Timelike t ⇒ Transition t
 accelerate_transition = clampTransition $ \t → 1-cos(pi*t/2)
 
-accelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → Presentation t s ()
+accelerateFromTo :: (Timelike t, Interpolatable t s') ⇒  Lens' s s' → t → s' → s' → PresentationM t s ()
 accelerateFromTo = easeFromTo accelerate_transition
 
-accelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → Presentation t s ()
+accelerateTo :: (Timelike t, Interpolatable t s') ⇒ Lens' s s' → t → s' → PresentationM t s ()
 accelerateTo = easeTo accelerate_transition
 
-accelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+accelerateBy :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 accelerateBy = easeBy accelerate_transition
 
-accelerateByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → Presentation t s ()
+accelerateByFactor :: (Timelike t, Num s', Interpolatable t s') ⇒  Lens' s s' → t → s' → PresentationM t s ()
 accelerateByFactor = easeByFactor accelerate_transition

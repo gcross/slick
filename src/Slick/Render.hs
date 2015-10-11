@@ -97,7 +97,7 @@ viewAnimation animation_and_state render = do
     c_slick_run (round initial_width) (round initial_height) . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
 
-viewPresentation :: CombinationMode → s → (Double → s → Document) → Presentation Double s () → IO ()
+viewPresentation :: CombinationMode → s → (Double → s → Document) → PresentationM Double s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 
