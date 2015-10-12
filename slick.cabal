@@ -29,6 +29,7 @@ Library
         dlist == 0.7.*,
         lens >= 4.9 && < 5,
         mtl == 2.2.*,
+        pointedlist == 0.6.*,
         text == 1.2.*,
         time == 1.5.*,
         transformers == 0.4.*,

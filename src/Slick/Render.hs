@@ -15,6 +15,9 @@ import qualified Data.ByteString as BS
 import Data.Conduit ((=$=), await, runConduit)
 import Data.Default (def)
 import Data.IORef
+import qualified Data.List.PointedList as PointedList
+import Data.List.PointedList (PointedList, fromList, suffix)
+import Data.Maybe (fromJust)
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
 import Foreign.C.String (CString)
@@ -40,6 +43,7 @@ data SlickState s = SlickState
     {   _s_mode :: Mode
     ,   _s_animation_and_state :: AnimationAndState Double s
     ,   _s_renderer :: Double → s → Document
+    ,   _s_next_pause :: PointedList Double
     }
 makeLenses ''SlickState
 
@@ -90,6 +94,8 @@ viewAnimation :: Presentation Double s → (Double → s → Document) → IO ()
 viewAnimation presentation render = do
     starting_time ← getCurrentTime
     let animation_and_state = presentation ^. p_animation_and_state
+        next_pause = fromJust . fromList . (^. p_pauses) $ presentation
+        initial_state = SlickState (PauseMode 0.0000001) animation_and_state render next_pause
         initial_document = render 1 $ animation_and_state ^. as_state
         Header initial_width initial_height = initial_document ^. header
     state_ref ← newIORef initial_state
