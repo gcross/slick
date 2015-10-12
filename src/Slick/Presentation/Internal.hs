@@ -74,7 +74,8 @@ appendAnimation animation = do
     ip_animations %= flip DList.snoc animation
 
 runPresentationIn :: Timelike t ⇒ CombinationMode → s → InnerPresentationM t s α → (α, Presentation t s)
-runPresentationIn combination_mode initial_state action = (final_value, Presentation (AnimationAndState animation initial_state) pauses)
+runPresentationIn combination_mode initial_state action =
+    (final_value, Presentation (AnimationAndState animation initial_state) pauses)
   where
     (final_value,final_presentation_state) =
         runState action $

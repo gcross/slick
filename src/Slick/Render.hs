@@ -89,15 +89,13 @@ slick_toggle_mode state_ptr = withState state_ptr $ do
 viewAnimation :: Presentation Double s → (Double → s → Document) → IO ()
 viewAnimation presentation render = do
     starting_time ← getCurrentTime
-    let initial_state = SlickState (PauseMode 0.0000001) animation_and_state render
+    let animation_and_state = presentation ^. p_animation_and_state
         initial_document = render 1 $ animation_and_state ^. as_state
         Header initial_width initial_height = initial_document ^. header
     state_ref ← newIORef initial_state
     state_ref_ptr ← newStablePtr state_ref
     c_slick_run (round initial_width) (round initial_height) . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
-  where
-    animation_and_state = presentation ^. p_animation_and_state
 
 viewPresentation :: CombinationMode → s → (Double → s → Document) → PresentationM Double s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
