@@ -12,6 +12,7 @@ module Slick.Presentation
     ,execPresentationIn
     ,within
     ,in_
+    ,wait
     )
     where
 
@@ -44,3 +45,6 @@ within lens (PresentationM action) = PresentationM $ Internal.within lens action
 
 in_ :: CombinationMode → PresentationM s α → PresentationM s α
 in_ combination_mode (PresentationM action) = PresentationM $ Internal.in_ combination_mode action
+
+wait :: Duration → PresentationM s ()
+wait = appendAnimation . constantAnimation

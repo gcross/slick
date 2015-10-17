@@ -52,6 +52,9 @@ cachelessAnimation duration function = clampAnimation $ Animation duration () (\
 statelessAnimation :: Duration → (Time → Time) → Animation Time
 statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
 
+constantAnimation :: Duration → Animation s
+constantAnimation duration = cachelessAnimation duration (const id)
+
 instantaneousAnimation :: s → s → Animation s
 instantaneousAnimation before after = clampAnimation $ cachelessAnimation 0.00000001 (\t _ → if t == 0 then before else after)
 

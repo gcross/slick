@@ -97,6 +97,8 @@ main = do
             decelerateTo (logo_gear_tail . y) 1 0
             decelerateBy (logo_gear . rotation_angle) 2 360
 
+        wait 2
+
         in_ Parallel $ do
             linearTo logo_squish 0.5 1
             linearTo logo_opacity 0.5 0
