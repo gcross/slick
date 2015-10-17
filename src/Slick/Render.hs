@@ -36,14 +36,14 @@ foreign import ccall "slick_write_to_handle" c_slick_write_to_handle :: Ptr () �
 foreign import ccall "slick_run" c_slick_run :: CInt → CInt → Ptr () → IO ()
 
 data Mode =
-    RunMode UTCTime NominalDiffTime
-  | PauseMode NominalDiffTime
+    RunMode UTCTime Time
+  | PauseMode Time
 
 data SlickState s = SlickState
     {   _s_mode :: Mode
-    ,   _s_animation_and_state :: AnimationAndState Double s
-    ,   _s_renderer :: Double → s → Document
-    ,   _s_next_pause :: PointedList Double
+    ,   _s_animation_and_state :: AnimationAndState s
+    ,   _s_renderer :: Time → s → Document
+    ,   _s_next_pause :: PointedList Time
     }
 makeLenses ''SlickState
 
@@ -63,8 +63,8 @@ slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
     time ← liftIO $ case mode of
         RunMode starting_time additional_time → do
             current_time ← getCurrentTime
-            return . realToFrac $ (current_time `diffUTCTime` starting_time) + additional_time
-        PauseMode time → return . realToFrac $ time
+            return $ realToFrac (current_time `diffUTCTime` starting_time) + additional_time
+        PauseMode time → return time
     AnimationAndState _ new_state ← s_animation_and_state <%= runAnimationAndState time
     renderer ← use s_renderer
     let document = renderer (realToFrac scale) new_state
@@ -86,11 +86,11 @@ slick_toggle_mode state_ptr = withState state_ptr $ do
     s_mode %=
       (\mode →
         case mode of
-            RunMode starting_time additional_time → PauseMode $ (current_time `diffUTCTime` starting_time) + additional_time
+            RunMode starting_time additional_time → PauseMode $ realToFrac (current_time `diffUTCTime` starting_time) + additional_time
             PauseMode additional_time → RunMode current_time additional_time
       )
 
-viewAnimation :: Presentation Double s → (Double → s → Document) → IO ()
+viewAnimation :: Presentation s → (Time → s → Document) → IO ()
 viewAnimation presentation render = do
     starting_time ← getCurrentTime
     let animation_and_state = presentation ^. p_animation_and_state
@@ -103,7 +103,7 @@ viewAnimation presentation render = do
     c_slick_run (round initial_width) (round initial_height) . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
 
-viewPresentation :: CombinationMode → s → (Double → s → Document) → PresentationM Double s () → IO ()
+viewPresentation :: CombinationMode → s → (Time → s → Document) → PresentationM s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 

@@ -5,7 +5,6 @@ module Slick.Presentation
     (Presentation
     ,PresentationM
     ,CombinationMode(..)
-    ,Timelike
     ,p_animation_and_state
     ,p_pauses
     ,appendAnimation
@@ -29,19 +28,19 @@ import Slick.Presentation.Internal hiding
     )
 import qualified Slick.Presentation.Internal as Internal
 
-appendAnimation :: Timelike t ⇒ Animation t s → PresentationM t s ()
+appendAnimation :: Animation s → PresentationM s ()
 appendAnimation = PresentationM . Internal.appendAnimation
 
-runPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → (α, Presentation t s)
+runPresentationIn :: CombinationMode → s → PresentationM s α → (α, Presentation s)
 runPresentationIn combination_mode initial_state =
     Internal.runPresentationIn combination_mode initial_state . unwrapPresentation
 
-execPresentationIn :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Presentation t s
+execPresentationIn :: CombinationMode → s → PresentationM s α → Presentation  s
 execPresentationIn combination_mode initial_state =
     Internal.execPresentationIn combination_mode initial_state . unwrapPresentation
 
-within :: Timelike t ⇒ Lens' s s' → PresentationM t s' α → PresentationM t s α
+within :: Lens' s s' → PresentationM s' α → PresentationM s α
 within lens (PresentationM action) = PresentationM $ Internal.within lens action
 
-in_ :: Timelike t ⇒ CombinationMode → PresentationM t s α → PresentationM t s α
+in_ :: CombinationMode → PresentationM s α → PresentationM s α
 in_ combination_mode (PresentationM action) = PresentationM $ Internal.in_ combination_mode action

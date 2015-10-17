@@ -27,10 +27,10 @@ import Slick.Animation
 import Slick.Presentation
 import Slick.Transition
 
-runAndReturnAnimation :: Timelike t ⇒ CombinationMode → s → PresentationM t s α → Animation t s
+runAndReturnAnimation :: CombinationMode → s → PresentationM s α → Animation s
 runAndReturnAnimation = (^. (p_animation_and_state . as_animation)) .** execPresentationIn
 
-testAnimationsEqual :: (Timelike t, Random t, Show t, Eq s, Show s) ⇒ String → s → Animation t s → Animation t s → Test.Framework.Test
+testAnimationsEqual :: (Eq s, Show s) ⇒ String → s → Animation s → Animation s → Test.Framework.Test
 testAnimationsEqual label initial_state correct_animation actual_animation =
     testGroup label
         [testCase "same duration" $
@@ -64,23 +64,29 @@ testAnimationsEqual label initial_state correct_animation actual_animation =
     actual_animation_duration = durationOf actual_animation
     duration = correct_animation_duration
 
-test_animation :: Animation Float Float
-test_animation = cachelessAnimation 1 (\t x → t+x)
+test_animation :: Animation Double
+test_animation = cachelessAnimation 1 (+)
 
-test_animation2 :: Animation Float Float
-test_animation2 = cachelessAnimation 1 (\t x → t*x)
+test_animation2 :: Animation Double
+test_animation2 = cachelessAnimation 1 (+)
 
-test_tuple_animation :: Animation Float (Float,Float)
+test_tuple_animation :: Animation (Double,Double)
 test_tuple_animation = cachelessAnimation 1 (\t → _1 %~ (+t))
 
-test_tuple_animation2 :: Animation Float (Float,Float)
+test_tuple_animation2 :: Animation (Double,Double)
 test_tuple_animation2 = cachelessAnimation 1 (\t → _2 %~ (*t))
 
-testTransition :: String → (Float → Float) → Bool → Test.Framework.Test
+testTransition :: String → (Double → Double) → Bool → Test.Framework.Test
 testTransition label transition check_bounds =
     testGroup label $
-        [testCase "Correct left endpoint" $ transition 0 @?= 0
-        ,testCase "Correct right endpoint" $ transition 1 @?= 1
+        [testCase "Correct left endpoint" $
+            assertBool
+                ("transition 0 (" ++ (show $ transition 0) ++ ") != 0")
+                (abs (transition 0 - 0) < 1e-7)
+        ,testCase "Correct right endpoint" $
+            assertBool
+                ("transition 1 (" ++ (show $ transition 1) ++ ") != 1")
+                (abs (transition 1 - 1) < 1e-7)
         ] ++
         if check_bounds
             then
@@ -100,7 +106,7 @@ testTransition label transition check_bounds =
 tests =
     [testGroup "Slick.Animation"
         [testGroup "serial"
-            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Float Float) (serial [])
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Double) (serial [])
             ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
             ,testGroup "length 2" $
                 [testAnimationsEqual "function of time only" 0
@@ -109,9 +115,9 @@ tests =
                         [cachelessAnimation 1 (\t _ → t)
                         ,cachelessAnimation 2 (\t _ → 1-t/2)
                         ]
-                     :: Animation Float Float
+                     :: Animation Double
                     )
-                ,testAnimationsEqual "2-tuple" (0::Float,0::Float)
+                ,testAnimationsEqual "2-tuple" (0::Double,0::Double)
                     (cachelessAnimation 2 $
                         \t → if t < 1 then _1 .~ t else  (_1 .~ 1) . (_2 .~ (t-1)**2)
                     )
@@ -122,58 +128,58 @@ tests =
                     )
                 ]
             ,testGroup "length 3" $
-                [testAnimationsEqual "function of time only" (0::Float)
-                    (statelessAnimation (6::Float) $ \t →
+                [testAnimationsEqual "function of time only" (0::Double)
+                    (statelessAnimation (6::Double) $ \t →
                         if  | t < 1 → t
                             | t >= 1 && t < 4 → 1-(t-1)/3
                             | otherwise → (t-4)**2
                     )
                     (serial
-                        [cachelessAnimation (1::Float) (\t _ → t)
-                        ,cachelessAnimation (3::Float) (\t _ → 1-t/3)
-                        ,cachelessAnimation (2::Float) (\t _ → t**2)
+                        [cachelessAnimation (1::Double) (\t _ → t)
+                        ,cachelessAnimation (3::Double) (\t _ → 1-t/3)
+                        ,cachelessAnimation (2::Double) (\t _ → t**2)
                         ]
                     )
                 ,testGroup "3-tuple" $
-                    [testAnimationsEqual "3-tuple" (0::Float,0::Float,0::Float)
-                        (cachelessAnimation (6::Float) $
+                    [testAnimationsEqual "3-tuple" (0::Double,0::Double,0::Double)
+                        (cachelessAnimation (6::Double) $
                             \t → if
                                 | t < 2 → _1 .~t
                                 | t >= 2 && t < 3 → (_1 .~ 2) . (_2 .~ (t-2)**2)
                                 | otherwise → (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-3)**3)
                         )
                         (serial
-                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
-                            ,cachelessAnimation (1::Float) (\t → (_2 .~ t**2))
-                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
+                            [cachelessAnimation (2::Double) (\t → (_1 .~ t))
+                            ,cachelessAnimation (1::Double) (\t → (_2 .~ t**2))
+                            ,cachelessAnimation (3::Double) (\t → (_3 .~ t**3))
                             ]
                         )
-                    ,testAnimationsEqual "zero length" (0::Float,0::Float,0::Float)
-                        (cachelessAnimation (5::Float) $ \t →
+                    ,testAnimationsEqual "zero length" (0::Double,0::Double,0::Double)
+                        (cachelessAnimation (5::Double) $ \t →
                             if t < 2
                             then _1 .~ t
                             else (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-2)**3)
                         )
                         (serial
-                            [cachelessAnimation (2::Float) (\t → (_1 .~ t))
-                            ,cachelessAnimation (0::Float) (\_ → (_2 .~ 1))
-                            ,cachelessAnimation (3::Float) (\t → (_3 .~ t**3))
+                            [cachelessAnimation (2::Double) (\t → (_1 .~ t))
+                            ,cachelessAnimation (0::Double) (\_ → (_2 .~ 1))
+                            ,cachelessAnimation (3::Double) (\t → (_3 .~ t**3))
                             ]
                         )
                     ]
                 ]
             ]
         ,testGroup "parallel"
-            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Float Float) (parallel [])
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Double) (parallel [])
             ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
-            ,testAnimationsEqual "length 2" (0::Float,0::Float)
+            ,testAnimationsEqual "length 2" (0::Double,0::Double)
                 (cachelessAnimation 2 $ \t → (_1 .~ t) . (if t <= 1 then _2 .~ t*t else _2 .~ 1))
                 (parallel
                     [cachelessAnimation 2  (\t → (_1 .~ t))
                     ,cachelessAnimation 1  (\t → (_2 .~ t*t))
                     ]
                 )
-            ,testAnimationsEqual ",length 3" (0::Float,0::Float,0::Float)
+            ,testAnimationsEqual ",length 3" (0::Double,0::Double,0::Double)
                 (cachelessAnimation 2 $ \t →
                     (if t <= 1 then _1 .~ t else _1 .~ 1)
                     .
@@ -198,23 +204,23 @@ tests =
                     durationOf (runAndReturnAnimation Parallel () (return ())) @?= 0
                 ]
             ,testGroup "single animation"
-                [testAnimationsEqual "serial" (0::Float)
+                [testAnimationsEqual "serial" (0::Double)
                     test_animation
-                    (runAndReturnAnimation Serial (0::Float) (appendAnimation test_animation))
-                ,testAnimationsEqual "parallel" (0::Float)
+                    (runAndReturnAnimation Serial (0::Double) (appendAnimation test_animation))
+                ,testAnimationsEqual "parallel" (0::Double)
                     test_animation
-                    (runAndReturnAnimation Parallel (0::Float) (appendAnimation test_animation) )
+                    (runAndReturnAnimation Parallel (0::Double) (appendAnimation test_animation) )
                 ]
             ,testGroup "two animations"
-                [testAnimationsEqual "serial" (0::Float)
+                [testAnimationsEqual "serial" (0::Double)
                     (serial [test_animation,test_animation2])
-                    (runAndReturnAnimation Serial (0::Float) $ do
+                    (runAndReturnAnimation Serial (0::Double) $ do
                         appendAnimation test_animation
                         appendAnimation test_animation2
                     )
-                ,testAnimationsEqual "parallel" (0::Float,0::Float)
+                ,testAnimationsEqual "parallel" (0::Double,0::Double)
                     (parallel [test_tuple_animation,test_tuple_animation2])
-                    (runAndReturnAnimation Parallel (0::Float,0::Float) $ do
+                    (runAndReturnAnimation Parallel (0::Double,0::Double) $ do
                         appendAnimation test_tuple_animation
                         appendAnimation test_tuple_animation2
                     )
@@ -223,14 +229,14 @@ tests =
         ]
     ,testGroup "Slick.Transition"
         [testGroup "transitions"
-            [testTransition "linear" linear_transition True
-            ,testTransition "smooth" smooth_transition True
-            ,testTransition "accelerate" accelerate_transition True
-            ,testTransition "decelerate" decelerate_transition True
+            [testTransition "linear" linear_easing True
+            ,testTransition "smooth" smooth_easing True
+            ,testTransition "accelerate" acceleration_easing True
+            ,testTransition "decelerate" deceleration_easing True
             ]
-        ,testAnimationsEqual "linearFromTo" (0::Float)
-            (statelessAnimation (2::Float) $ \t → t)
-            (runAndReturnAnimation Serial (0::Float) $ linearFromTo simple (2::Float) (0::Float) (2::Float))
+        ,testAnimationsEqual "linearFromTo" (0::Double)
+            (statelessAnimation (2::Double) $ \t → t)
+            (runAndReturnAnimation Serial (0::Double) $ linearFromTo simple (2::Double) (0::Double) (2::Double))
         ]
     ]
 

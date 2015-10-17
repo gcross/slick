@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
@@ -16,13 +17,17 @@ import Data.Composition ((.**))
 import Data.List (mapAccumL)
 import Data.IORef (IORef, readIORef, writeIORef)
 
-data Animation t s = ∀ ɣ. Animation
-    { animationDuration :: t
+type Duration = Double
+
+type Time = Double
+
+data Animation s = ∀ ɣ. Animation
+    { animationDuration :: Duration
     , animationCache :: ɣ
-    , animationFunction :: t → s → ɣ → (s, ɣ)
+    , animationFunction :: Time → s → ɣ → (s, ɣ)
     }
 
-promoteAnimation :: Lens' s s' → Animation t s' → Animation t s
+promoteAnimation :: Lens' s s' → Animation s' → Animation s
 promoteAnimation alens Animation{..} =
     Animation animationDuration animationCache newAnimationFunction
   where
@@ -31,63 +36,63 @@ promoteAnimation alens Animation{..} =
         (s'_new,c_new) = animationFunction t (s ^. alens) c
         s_new = set alens s'_new s
 
-clampAnimation :: (Num t, Ord t) ⇒ Animation t s → Animation t s
+clampAnimation :: Animation s → Animation s
 clampAnimation (Animation duration cache f) =
   Animation duration cache $ \t s c →
     if | t < 0 → f 0 s c
        | t > duration → f duration s c
        | otherwise → f t s c
 
-null_animation :: Num t ⇒ Animation t s
+null_animation :: Animation s
 null_animation = Animation 0 () (\_ x y → (x,y))
 
-cachelessAnimation :: (Num t, Ord t) ⇒ t → (t → s → s) → Animation t s
+cachelessAnimation :: Duration → (Time → s → s) → Animation s
 cachelessAnimation duration function = clampAnimation $ Animation duration () (\t x () → (function t x, ()))
 
-statelessAnimation :: (Num t, Ord t) ⇒ t → (t → t) → Animation t t
+statelessAnimation :: Duration → (Time → Time) → Animation Time
 statelessAnimation duration function = clampAnimation $ Animation duration () (\t _ () → (function t, ()))
 
-instantaneousAnimation :: (Fractional t, Ord t) ⇒ s → s → Animation t s
+instantaneousAnimation :: s → s → Animation s
 instantaneousAnimation before after = clampAnimation $ cachelessAnimation 0.00000001 (\t _ → if t == 0 then before else after)
 
-durationOf :: Animation t s → t
+durationOf :: Animation s → Duration
 durationOf animation = case animation of Animation{..} → animationDuration
 
-runAnimation :: Animation t s → t → s → (s, Animation t s)
+runAnimation :: Animation s → Time → s → (s, Animation s)
 runAnimation Animation{..} t state =
     (new_state, Animation animationDuration new_cache animationFunction)
   where
     (new_state, new_cache) = animationFunction t state animationCache
 
-execAnimation :: Animation t s → t → s → s
+execAnimation :: Animation s → Time → s → s
 execAnimation = fst .** runAnimation
 
-data AnimationAndState t s = AnimationAndState
-    { _as_animation :: Animation t s
+data AnimationAndState s = AnimationAndState
+    { _as_animation :: Animation s
     , _as_state :: s
     }
 makeLenses ''AnimationAndState
 
-runAnimationAndState :: t → AnimationAndState t s → AnimationAndState t s
+runAnimationAndState :: Time → AnimationAndState s → AnimationAndState s
 runAnimationAndState t old = AnimationAndState new_animation new_state
   where
     (new_state, new_animation) = runAnimation (old ^. as_animation) t (old ^. as_state)
 
-runAnimationAndStateInIORef :: t → IORef (AnimationAndState t s) → IO s
+runAnimationAndStateInIORef :: Time → IORef (AnimationAndState s) → IO s
 runAnimationAndStateInIORef t ref = do
     old ← readIORef ref
     let new = runAnimationAndState t old
     writeIORef ref new
     return (new ^. as_state)
 
-data AnimationZipper t s = AnimationZipper
-    { zipperLeft :: [Animation t s]
-    , zipperRight :: [Animation t s]
-    , zipperCurrent :: Animation t s
-    , zipperLeftTime :: t
+data AnimationZipper s = AnimationZipper
+    { zipperLeft :: [Animation s]
+    , zipperRight :: [Animation s]
+    , zipperCurrent :: Animation s
+    , zipperLeftTime :: Time
     }
 
-moveLeft :: Num t ⇒ s → AnimationZipper t s → (s, AnimationZipper t s)
+moveLeft :: s → AnimationZipper s → (s, AnimationZipper s)
 moveLeft state zipper@AnimationZipper{zipperLeft=[]} = (state, zipper)
 moveLeft state (AnimationZipper (left:rest) right current left_time) = (new_state, new_zipper)
   where
@@ -104,7 +109,7 @@ moveLeft state (AnimationZipper (left:rest) right current left_time) = (new_stat
         , zipperLeftTime = left_time - durationOf left
         }
 
-moveRight :: Num t ⇒ s → AnimationZipper t s → (s, AnimationZipper t s)
+moveRight :: s → AnimationZipper s → (s, AnimationZipper s)
 moveRight state zipper@AnimationZipper{zipperRight=[]} = (state, zipper)
 moveRight state (AnimationZipper left (right:rest) current left_time) = (new_state, new_zipper)
   where
@@ -117,7 +122,7 @@ moveRight state (AnimationZipper left (right:rest) current left_time) = (new_sta
         , zipperLeftTime = left_time + durationOf current
         }
 
-serial :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
+serial :: [Animation s] → Animation s
 serial [] = null_animation
 serial [animation] = animation
 serial animations@(first:rest) = clampAnimation Animation{..}
@@ -144,7 +149,7 @@ serial animations@(first:rest) = clampAnimation Animation{..}
               runAnimation zipperCurrent (time - zipperLeftTime) state
           new_zipper = zipper{zipperCurrent=new_animation}
 
-parallel :: (Num t, Ord t) ⇒ [Animation t s] → Animation t s
+parallel :: [Animation s] → Animation s
 parallel [] = null_animation
 parallel animations = Animation animationDuration animationCache animationFunction -- (Animation{..})
   where
@@ -163,5 +168,3 @@ parallel animations = Animation animationDuration animationCache animationFuncti
             )
             state
             list
-
-type Timelike t = (Floating t, Ord t)

@@ -9,18 +9,18 @@ import Control.Monad.Trans.State.Strict (StateT(..),evalStateT,execStateT,get,pu
 
 import Slick.Animation
 
-data AnimationState t s = AnimationState
-    {   _a_animation :: Animation t s
+data AnimationState s = AnimationState
+    {   _a_animation :: Animation s
     ,   _a_state :: s
     }
 makeLenses ''AnimationState
 
-newtype AnimationM t s m α = AnimationM { unwrapAnimationM :: StateT (AnimationState t s) m α }
+newtype AnimationM s m α = AnimationM { unwrapAnimationM :: StateT (AnimationState s) m α }
 
-startAnimationM :: Monad m ⇒ Animation t s → s → AnimationM t s m ()
+startAnimationM :: Monad m ⇒ Animation s → s → AnimationM s m ()
 startAnimationM animation state = AnimationM . put $ AnimationState animation state
 
-runAt :: Monad m ⇒ t → AnimationM t s m s
+runAt :: Monad m ⇒ Time → AnimationM s m s
 runAt t = AnimationM $ do
     animation_state ← get
     let (new_state, new_animation) =
@@ -31,11 +31,11 @@ runAt t = AnimationM $ do
     put $ AnimationState new_animation new_state
     return new_state
 
-runAnimationM :: Monad m ⇒ AnimationM t s m α → AnimationState t s → m (α, AnimationState t s)
+runAnimationM :: Monad m ⇒ AnimationM s m α → AnimationState s → m (α, AnimationState s)
 runAnimationM = runStateT . unwrapAnimationM
 
-evalanimationm :: Monad m ⇒ AnimationM t s m α → AnimationState t s → m α
+evalanimationm :: Monad m ⇒ AnimationM s m α → AnimationState s → m α
 evalanimationm = evalStateT . unwrapAnimationM
 
-execAnimationM :: Monad m ⇒ AnimationM t s m α → AnimationState t s → m (AnimationState t s)
+execAnimationM :: Monad m ⇒ AnimationM s m α → AnimationState s → m (AnimationState s)
 execAnimationM = execStateT . unwrapAnimationM

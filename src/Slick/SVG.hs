@@ -184,7 +184,7 @@ extractElementsFromAllSVG = concatMap extractElementsFromSVG
 mkDefsFromAllSVG :: [Document] → Element
 mkDefsFromAllSVG = mkDefs . extractElementsFromAllSVG
 
-instance Interpolatable Double Scale where
+instance Interpolatable Scale where
     interpolateUnitInterval (PropScale before) (PropScale after) t =
         PropScale (interpolateUnitInterval before after t)
     interpolateUnitInterval (NonPropScale before1 before2) (NonPropScale after1 after2) t =
@@ -193,7 +193,6 @@ instance Interpolatable Double Scale where
         error "Must interpolate between the same kind of scale.  (Not from PropScale to NonPropScale.)"
     interpolateUnitInterval (NonPropScale _ _) (PropScale _) _ =
         error "Must interpolate between the same kind of scale.  (Not from NonPropScale to PropScale.)"
-
 
 mkActor :: Text → Text → Actor
 mkActor actor_id parent_transform = Actor actor_id parent_transform def
