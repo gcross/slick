@@ -13,7 +13,7 @@ import Control.Lens (Lens',set,use)
 import Slick.Animation
 import Slick.Presentation
 
-type Progress = Double
+type Progress = Rational
 
 type Easing = Progress → Progress
 
@@ -76,7 +76,7 @@ linearByFactor :: (Num s', Interpolatable s') ⇒ Lens' s s' → Duration → s'
 linearByFactor = easeByFactor linear_easing
 
 smooth_easing :: Easing
-smooth_easing = clampEasing $ \t → sin(pi*t/2)**2
+smooth_easing = clampEasing $ \t → toRational (sin(pi*fromRational t/2)**2)
 
 smoothFromTo :: Interpolatable s' ⇒ Lens' s s' → Duration → s' → s' → PresentationM s ()
 smoothFromTo = easeFromTo smooth_easing
@@ -91,7 +91,7 @@ smoothByFactor :: (Num s', Interpolatable s') ⇒ Lens' s s' → Duration → s'
 smoothByFactor = easeByFactor smooth_easing
 
 deceleration_easing :: Easing
-deceleration_easing = clampEasing $ \t → sin(pi*t/2)
+deceleration_easing = clampEasing $ \t → toRational (sin(pi*fromRational t/2))
 
 decelerateFromTo :: Interpolatable s' ⇒ Lens' s s' → Duration → s' → s' → PresentationM s ()
 decelerateFromTo = easeFromTo deceleration_easing
@@ -106,7 +106,7 @@ decelerateByFactor :: (Num s', Interpolatable s') ⇒ Lens' s s' → Duration �
 decelerateByFactor = easeByFactor deceleration_easing
 
 acceleration_easing :: Easing
-acceleration_easing = clampEasing $ \t → 1-cos(pi*t/2)
+acceleration_easing = clampEasing $ \t → 1-toRational (cos(pi*fromRational t/2))
 
 accelerateFromTo :: Interpolatable s' ⇒ Lens' s s' → Duration → s' → s' → PresentationM s ()
 accelerateFromTo = easeFromTo acceleration_easing

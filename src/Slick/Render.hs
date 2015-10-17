@@ -43,7 +43,7 @@ data Mode =
 data SlickState s = SlickState
     {   _s_mode :: Mode
     ,   _s_animation_and_state :: AnimationAndState s
-    ,   _s_renderer :: Time → s → Document
+    ,   _s_renderer :: Double → s → Document
     ,   _s_pause_zipper :: PointedList Time
     }
 makeLenses ''SlickState
@@ -99,7 +99,7 @@ slick_toggle_mode state_ptr = withState state_ptr $ do
             PauseMode additional_time → RunMode current_time additional_time
       )
 
-viewAnimation :: Presentation s → (Time → s → Document) → IO ()
+viewAnimation :: Presentation s → (Double → s → Document) → IO ()
 viewAnimation presentation render = do
     starting_time ← getCurrentTime
     let animation_and_state = presentation ^. p_animation_and_state
@@ -112,7 +112,7 @@ viewAnimation presentation render = do
     c_slick_run (round initial_width) (round initial_height) . castStablePtrToPtr $ state_ref_ptr
     freeStablePtr state_ref_ptr
 
-viewPresentation :: CombinationMode → s → (Time → s → Document) → PresentationM s () → IO ()
+viewPresentation :: CombinationMode → s → (Double → s → Document) → PresentationM s () → IO ()
 viewPresentation combination_mode initial_state render presentation =
     viewAnimation (execPresentationIn combination_mode initial_state presentation) render
 

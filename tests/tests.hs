@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 import Control.Lens (_1, _2, _3, (.~), (%~), (^.), simple)
@@ -15,7 +17,7 @@ import Text.Printf (printf)
 
 import System.IO.Unsafe (unsafePerformIO)
 
-import System.Random (Random)
+import System.Random (Random(randomR,random))
 
 import Test.Framework
 import Test.Framework.Providers.HUnit
@@ -26,6 +28,15 @@ import Test.QuickCheck
 import Slick.Animation
 import Slick.Presentation
 import Slick.Transition
+
+instance Random Rational where
+    randomR (lo,hi) g = (toRational double, g')
+      where
+        (double::Double, g') = randomR (fromRational lo, fromRational hi) g
+
+    random g = (toRational double, g')
+      where
+        (double::Double, g') = random g
 
 runAndReturnAnimation :: CombinationMode → s → PresentationM s α → Animation s
 runAndReturnAnimation = (^. (p_animation_and_state . as_animation)) .** execPresentationIn
@@ -64,19 +75,19 @@ testAnimationsEqual label initial_state correct_animation actual_animation =
     actual_animation_duration = durationOf actual_animation
     duration = correct_animation_duration
 
-test_animation :: Animation Double
+test_animation :: Animation Rational
 test_animation = cachelessAnimation 1 (+)
 
-test_animation2 :: Animation Double
+test_animation2 :: Animation Rational
 test_animation2 = cachelessAnimation 1 (+)
 
-test_tuple_animation :: Animation (Double,Double)
+test_tuple_animation :: Animation (Rational,Rational)
 test_tuple_animation = cachelessAnimation 1 (\t → _1 %~ (+t))
 
-test_tuple_animation2 :: Animation (Double,Double)
+test_tuple_animation2 :: Animation (Rational,Rational)
 test_tuple_animation2 = cachelessAnimation 1 (\t → _2 %~ (*t))
 
-testTransition :: String → (Double → Double) → Bool → Test.Framework.Test
+testTransition :: String → (Rational → Rational) → Bool → Test.Framework.Test
 testTransition label transition check_bounds =
     testGroup label $
         [testCase "Correct left endpoint" $
@@ -104,7 +115,7 @@ testTransition label transition check_bounds =
 tests =
     [testGroup "Slick.Animation"
         [testGroup "serial"
-            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Double) (serial [])
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Rational) (serial [])
             ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
             ,testGroup "length 2"
                 [testAnimationsEqual "function of time only" 0
@@ -113,88 +124,88 @@ tests =
                         [cachelessAnimation 1 const
                         ,cachelessAnimation 2 (\t _ → 1-t/2)
                         ]
-                     :: Animation Double
+                     :: Animation Rational
                     )
-                ,testAnimationsEqual "2-tuple" (0::Double,0::Double)
+                ,testAnimationsEqual "2-tuple" (0::Rational,0::Rational)
                     (cachelessAnimation 2 $
-                        \t → if t < 1 then _1 .~ t else  (_1 .~ 1) . (_2 .~ (t-1)**2)
+                        \t → if t < 1 then _1 .~ t else  (_1 .~ 1) . (_2 .~ (t-1)^2)
                     )
                     (serial
                         [cachelessAnimation 1 (\t → _1 .~ t)
-                        ,cachelessAnimation 1 (\t → _2 .~ t**2)
+                        ,cachelessAnimation 1 (\t → _2 .~ t^2)
                         ]
                     )
                 ]
             ,testGroup "length 3"
-                [testAnimationsEqual "function of time only" (0::Double)
-                    (statelessAnimation (6::Double) $ \t →
+                [testAnimationsEqual "function of time only" (0::Rational)
+                    (statelessAnimation (6::Rational) $ \t →
                         if  | t < 1 → t
                             | t >= 1 && t < 4 → 1-(t-1)/3
-                            | otherwise → (t-4)**2
+                            | otherwise → (t-4)^2
                     )
                     (serial
-                        [cachelessAnimation (1::Double) const
-                        ,cachelessAnimation (3::Double) (\t _ → 1-t/3)
-                        ,cachelessAnimation (2::Double) (\t _ → t**2)
+                        [cachelessAnimation (1::Rational) const
+                        ,cachelessAnimation (3::Rational) (\t _ → 1-t/3)
+                        ,cachelessAnimation (2::Rational) (\t _ → t^2)
                         ]
                     )
                 ,testGroup "3-tuple"
-                    [testAnimationsEqual "3-tuple" (0::Double,0::Double,0::Double)
-                        (cachelessAnimation (6::Double) $
+                    [testAnimationsEqual "3-tuple" (0::Rational,0::Rational,0::Rational)
+                        (cachelessAnimation (6::Rational) $
                             \t → if
                                 | t < 2 → _1 .~t
-                                | t >= 2 && t < 3 → (_1 .~ 2) . (_2 .~ (t-2)**2)
-                                | otherwise → (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-3)**3)
+                                | t >= 2 && t < 3 → (_1 .~ 2) . (_2 .~ (t-2)^2)
+                                | otherwise → (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-3)^3)
                         )
                         (serial
-                            [cachelessAnimation (2::Double) (\t → _1 .~ t**1)
-                            ,cachelessAnimation (1::Double) (\t → _2 .~ t**2)
-                            ,cachelessAnimation (3::Double) (\t → _3 .~ t**3)
+                            [cachelessAnimation (2::Rational) (\t → _1 .~ t^1)
+                            ,cachelessAnimation (1::Rational) (\t → _2 .~ t^2)
+                            ,cachelessAnimation (3::Rational) (\t → _3 .~ t^3)
                             ]
                         )
-                    ,testAnimationsEqual "zero length" (0::Double,0::Double,0::Double)
-                        (cachelessAnimation (5::Double) $ \t →
+                    ,testAnimationsEqual "zero length" (0::Rational,0::Rational,0::Rational)
+                        (cachelessAnimation (5::Rational) $ \t →
                             if t < 2
                             then _1 .~ t
-                            else (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-2)**3)
+                            else (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-2)^3)
                         )
                         (serial
-                            [cachelessAnimation (2::Double) (\t → _1 .~ t)
-                            ,cachelessAnimation (0::Double) (\_ → _2 .~ 1)
-                            ,cachelessAnimation (3::Double) (\t → _3 .~ t**3)
+                            [cachelessAnimation (2::Rational) (\t → _1 .~ t)
+                            ,cachelessAnimation (0::Rational) (\_ → _2 .~ 1)
+                            ,cachelessAnimation (3::Rational) (\t → _3 .~ t^3)
                             ]
                         )
                     ]
                 ]
             ]
         ,testGroup "parallel"
-            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Double) (parallel [])
+            [testAnimationsEqual "length 0" 0 (null_animation :: Animation Rational) (parallel [])
             ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
-            ,testAnimationsEqual "length 2" (0::Double,0::Double)
+            ,testAnimationsEqual "length 2" (0::Rational,0::Rational)
                 (cachelessAnimation 2 $ \t → (_1 .~ t) . (if t <= 1 then _2 .~ t*t else _2 .~ 1))
                 (parallel
-                    [cachelessAnimation 2  (\t → _1 .~ t**1)
-                    ,cachelessAnimation 1  (\t → _2 .~ t**2)
+                    [cachelessAnimation 2  (\t → _1 .~ t^1)
+                    ,cachelessAnimation 1  (\t → _2 .~ t^2)
                     ]
                 )
-            ,testAnimationsEqual ",length 3" (0::Double,0::Double,0::Double)
+            ,testAnimationsEqual ",length 3" (0::Rational,0::Rational,0::Rational)
                 (cachelessAnimation 2 $ \t →
                     (if t <= 1 then _1 .~ t else _1 .~ 1)
                     .
                     (_2 .~ 1)
                     .
-                    (_3 .~ t**3)
+                    (_3 .~ t^3)
                 )
                 (parallel
                     [cachelessAnimation 1  (\t → _1 .~ t)
                     ,cachelessAnimation 0  (\t → _2 .~ 1)
-                    ,cachelessAnimation 2  (\t → _3 .~ t**3)
+                    ,cachelessAnimation 2  (\t → _3 .~ t^3)
                     ]
                 )
             ]
         ]
     ,testGroup "Slick.Presentation"
-        [testGroup "runAndReturnAnimation"
+        [testGroup "animation equivalence"
             [testGroup "return ()"
                 [testCase "serial" $
                     durationOf (runAndReturnAnimation Serial () (return ())) @?= 0
@@ -202,23 +213,23 @@ tests =
                     durationOf (runAndReturnAnimation Parallel () (return ())) @?= 0
                 ]
             ,testGroup "single animation"
-                [testAnimationsEqual "serial" (0::Double)
+                [testAnimationsEqual "serial" (0::Rational)
                     test_animation
-                    (runAndReturnAnimation Serial (0::Double) (appendAnimation test_animation))
-                ,testAnimationsEqual "parallel" (0::Double)
+                    (runAndReturnAnimation Serial (0::Rational) (appendAnimation test_animation))
+                ,testAnimationsEqual "parallel" (0::Rational)
                     test_animation
-                    (runAndReturnAnimation Parallel (0::Double) (appendAnimation test_animation) )
+                    (runAndReturnAnimation Parallel (0::Rational) (appendAnimation test_animation) )
                 ]
             ,testGroup "two animations"
-                [testAnimationsEqual "serial" (0::Double)
+                [testAnimationsEqual "serial" (0::Rational)
                     (serial [test_animation,test_animation2])
-                    (runAndReturnAnimation Serial (0::Double) $ do
+                    (runAndReturnAnimation Serial (0::Rational) $ do
                         appendAnimation test_animation
                         appendAnimation test_animation2
                     )
-                ,testAnimationsEqual "parallel" (0::Double,0::Double)
+                ,testAnimationsEqual "parallel" (0::Rational,0::Rational)
                     (parallel [test_tuple_animation,test_tuple_animation2])
-                    (runAndReturnAnimation Parallel (0::Double,0::Double) $ do
+                    (runAndReturnAnimation Parallel (0::Rational,0::Rational) $ do
                         appendAnimation test_tuple_animation
                         appendAnimation test_tuple_animation2
                     )
@@ -232,9 +243,9 @@ tests =
             ,testTransition "accelerate" acceleration_easing True
             ,testTransition "decelerate" deceleration_easing True
             ]
-        ,testAnimationsEqual "linearFromTo" (0::Double)
-            (statelessAnimation (2::Double) id)
-            (runAndReturnAnimation Serial (0::Double) $ linearFromTo simple (2::Double) (0::Double) (2::Double))
+        ,testAnimationsEqual "linearFromTo" (0::Rational)
+            (statelessAnimation (2::Rational) id)
+            (runAndReturnAnimation Serial (0::Rational) $ linearFromTo simple (2::Rational) (0::Rational) (2::Rational))
         ]
     ]
 

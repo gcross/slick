@@ -17,9 +17,9 @@ import Data.Composition ((.**))
 import Data.List (mapAccumL)
 import Data.IORef (IORef, readIORef, writeIORef)
 
-type Duration = Double
+type Duration = Rational
 
-type Time = Double
+type Time = Rational
 
 data Animation s = ∀ ɣ. Animation
     { animationDuration :: Duration
