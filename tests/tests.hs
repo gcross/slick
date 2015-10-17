@@ -1,15 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 import Control.Lens (_1, _2, _3, (.~), (%~), (^.), simple)
+import Control.Monad (liftM)
 
 import Data.Composition ((.**))
-import Data.List (intercalate)
 import Data.Function (on)
+import Data.List (intercalate)
 
 import Text.Printf (printf)
 
@@ -55,9 +55,9 @@ testAnimationsEqual label initial_state correct_animation actual_animation =
                         (new_actual_state, new_actual_animation) = runAnimation actual_animation t state
                     assertEqual message new_actual_state new_correct_state
                     go new_correct_state new_correct_animation new_actual_animation (t:past_reversed) future
-            in listOf (choose (-duration/6, duration*7/6))
-               >>=
-               return . ioProperty . go initial_state correct_animation actual_animation []
+            in liftM
+                (ioProperty . go initial_state correct_animation actual_animation [])
+                (listOf (choose (-duration/6, duration*7/6)))
         ]
   where
     correct_animation_duration = durationOf correct_animation
@@ -81,38 +81,36 @@ testTransition label transition check_bounds =
     testGroup label $
         [testCase "Correct left endpoint" $
             assertBool
-                ("transition 0 (" ++ (show $ transition 0) ++ ") != 0")
-                (abs (transition 0 - 0) < 1e-7)
+                ("transition 0 (" ++ show (transition 0) ++ ") != 0")
+                (abs (transition 0) < 1e-7)
         ,testCase "Correct right endpoint" $
             assertBool
-                ("transition 1 (" ++ (show $ transition 1) ++ ") != 1")
+                ("transition 1 (" ++ show (transition 1) ++ ") != 1")
                 (abs (transition 1 - 1) < 1e-7)
         ] ++
-        if check_bounds
-            then
-                [testProperty "Within bounds" $ do
-                    t ← choose (-0.25,1.25)
-                    let tt = transition t
-                        is_valid =
-                            if | t <= 0 → tt == 0
-                               | t >= 1 → tt == 1
-                               | otherwise → tt >= 0 && tt <= 1
-                    if is_valid
-                        then return True
-                        else error $ "At time " ++ show t ++ " transition had value " ++ show tt
-                ]
-            else []
+        [testProperty "Within bounds" $ do
+            t ← choose (-0.25,1.25)
+            let tt = transition t
+                is_valid =
+                    if | t <= 0 → tt == 0
+                        | t >= 1 → tt == 1
+                        | otherwise → tt >= 0 && tt <= 1
+            if is_valid
+                then return True
+                else error $ "At time " ++ show t ++ " transition had value " ++ show tt
+        | check_bounds
+        ]
 
 tests =
     [testGroup "Slick.Animation"
         [testGroup "serial"
             [testAnimationsEqual "length 0" 0 (null_animation :: Animation Double) (serial [])
             ,testAnimationsEqual "length 1" 0 test_animation (serial [test_animation])
-            ,testGroup "length 2" $
+            ,testGroup "length 2"
                 [testAnimationsEqual "function of time only" 0
                     (statelessAnimation 3 $ \t → if t < 1 then t else 1-(t-1)/2)
                     (serial
-                        [cachelessAnimation 1 (\t _ → t)
+                        [cachelessAnimation 1 const
                         ,cachelessAnimation 2 (\t _ → 1-t/2)
                         ]
                      :: Animation Double
@@ -122,12 +120,12 @@ tests =
                         \t → if t < 1 then _1 .~ t else  (_1 .~ 1) . (_2 .~ (t-1)**2)
                     )
                     (serial
-                        [cachelessAnimation 1 (\t → (_1 .~ t))
-                        ,cachelessAnimation 1 (\t → (_2 .~ t**2))
+                        [cachelessAnimation 1 (\t → _1 .~ t)
+                        ,cachelessAnimation 1 (\t → _2 .~ t**2)
                         ]
                     )
                 ]
-            ,testGroup "length 3" $
+            ,testGroup "length 3"
                 [testAnimationsEqual "function of time only" (0::Double)
                     (statelessAnimation (6::Double) $ \t →
                         if  | t < 1 → t
@@ -135,12 +133,12 @@ tests =
                             | otherwise → (t-4)**2
                     )
                     (serial
-                        [cachelessAnimation (1::Double) (\t _ → t)
+                        [cachelessAnimation (1::Double) const
                         ,cachelessAnimation (3::Double) (\t _ → 1-t/3)
                         ,cachelessAnimation (2::Double) (\t _ → t**2)
                         ]
                     )
-                ,testGroup "3-tuple" $
+                ,testGroup "3-tuple"
                     [testAnimationsEqual "3-tuple" (0::Double,0::Double,0::Double)
                         (cachelessAnimation (6::Double) $
                             \t → if
@@ -149,9 +147,9 @@ tests =
                                 | otherwise → (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-3)**3)
                         )
                         (serial
-                            [cachelessAnimation (2::Double) (\t → (_1 .~ t))
-                            ,cachelessAnimation (1::Double) (\t → (_2 .~ t**2))
-                            ,cachelessAnimation (3::Double) (\t → (_3 .~ t**3))
+                            [cachelessAnimation (2::Double) (\t → _1 .~ t**1)
+                            ,cachelessAnimation (1::Double) (\t → _2 .~ t**2)
+                            ,cachelessAnimation (3::Double) (\t → _3 .~ t**3)
                             ]
                         )
                     ,testAnimationsEqual "zero length" (0::Double,0::Double,0::Double)
@@ -161,9 +159,9 @@ tests =
                             else (_1 .~ 2) . (_2 .~ 1) . (_3 .~ (t-2)**3)
                         )
                         (serial
-                            [cachelessAnimation (2::Double) (\t → (_1 .~ t))
-                            ,cachelessAnimation (0::Double) (\_ → (_2 .~ 1))
-                            ,cachelessAnimation (3::Double) (\t → (_3 .~ t**3))
+                            [cachelessAnimation (2::Double) (\t → _1 .~ t)
+                            ,cachelessAnimation (0::Double) (\_ → _2 .~ 1)
+                            ,cachelessAnimation (3::Double) (\t → _3 .~ t**3)
                             ]
                         )
                     ]
@@ -175,8 +173,8 @@ tests =
             ,testAnimationsEqual "length 2" (0::Double,0::Double)
                 (cachelessAnimation 2 $ \t → (_1 .~ t) . (if t <= 1 then _2 .~ t*t else _2 .~ 1))
                 (parallel
-                    [cachelessAnimation 2  (\t → (_1 .~ t))
-                    ,cachelessAnimation 1  (\t → (_2 .~ t*t))
+                    [cachelessAnimation 2  (\t → _1 .~ t**1)
+                    ,cachelessAnimation 1  (\t → _2 .~ t**2)
                     ]
                 )
             ,testAnimationsEqual ",length 3" (0::Double,0::Double,0::Double)
@@ -188,9 +186,9 @@ tests =
                     (_3 .~ t**3)
                 )
                 (parallel
-                    [cachelessAnimation 1  (\t → (_1 .~ t))
-                    ,cachelessAnimation 0  (\t → (_2 .~ 1))
-                    ,cachelessAnimation 2  (\t → (_3 .~ t**3))
+                    [cachelessAnimation 1  (\t → _1 .~ t)
+                    ,cachelessAnimation 0  (\t → _2 .~ 1)
+                    ,cachelessAnimation 2  (\t → _3 .~ t**3)
                     ]
                 )
             ]
@@ -235,7 +233,7 @@ tests =
             ,testTransition "decelerate" deceleration_easing True
             ]
         ,testAnimationsEqual "linearFromTo" (0::Double)
-            (statelessAnimation (2::Double) $ \t → t)
+            (statelessAnimation (2::Double) id)
             (runAndReturnAnimation Serial (0::Double) $ linearFromTo simple (2::Double) (0::Double) (2::Double))
         ]
     ]
