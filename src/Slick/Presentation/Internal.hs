@@ -90,7 +90,16 @@ runPresentationIn combination_mode initial_state action =
         combineAnimationsUsing
             combination_mode
             (DList.toList $ final_presentation_state ^. ip_animations)
-    pauses = Set.toList . Set.insert (durationOf animation) . (^. ip_pauses) $ final_presentation_state
+    pauses =
+        Set.toList
+        .
+        Set.delete 0
+        .
+        Set.insert (durationOf animation)
+        .
+        (^. ip_pauses)
+        $
+        final_presentation_state
 
 execPresentationIn :: CombinationMode → s → InnerPresentationM s α → Presentation s
 execPresentationIn = snd .** runPresentationIn
@@ -124,3 +133,6 @@ in_ combination_mode action = do
     appendAnimation $
         combineAnimationsUsing combination_mode (DList.toList $ new_state ^. ip_animations)
     return result
+
+pause :: InnerPresentationM s ()
+pause = use ip_time >>= (ip_pauses %=) . Set.insert

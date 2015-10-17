@@ -7,7 +7,8 @@
 
 module Slick.Render where
 
-import Control.Lens ((^.),(%=),(<%=),makeLenses,use)
+import Control.Lens ((^.),(%=),(<%=),(.=),makeLenses,use)
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Strict (StateT, runStateT)
 
@@ -16,8 +17,8 @@ import Data.Conduit ((=$=), await, runConduit)
 import Data.Default (def)
 import Data.IORef
 import qualified Data.List.PointedList as PointedList
-import Data.List.PointedList (PointedList, fromList, suffix)
-import Data.Maybe (fromJust)
+import Data.List.PointedList (PointedList, focus, fromList, next, suffix)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
 import Foreign.C.String (CString)
@@ -43,7 +44,7 @@ data SlickState s = SlickState
     {   _s_mode :: Mode
     ,   _s_animation_and_state :: AnimationAndState s
     ,   _s_renderer :: Time → s → Document
-    ,   _s_next_pause :: PointedList Time
+    ,   _s_pause_zipper :: PointedList Time
     }
 makeLenses ''SlickState
 
@@ -60,11 +61,19 @@ foreign export ccall slick_write_document :: Ptr () → CDouble → Ptr () → I
 slick_write_document :: Ptr () → CDouble → Ptr () → IO ()
 slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
     mode ← use s_mode
-    time ← liftIO $ case mode of
-        RunMode starting_time additional_time → do
-            current_time ← getCurrentTime
-            return $ realToFrac (current_time `diffUTCTime` starting_time) + additional_time
+    time ← case mode of
         PauseMode time → return time
+        RunMode starting_time additional_time → do
+            current_time ← liftIO getCurrentTime
+            let time = realToFrac (current_time `diffUTCTime` starting_time) + additional_time
+            next_pause_time ← use (s_pause_zipper . focus)
+            if time >= next_pause_time
+                then do
+                    s_mode .= PauseMode next_pause_time
+                    s_pause_zipper %= (\pause_zipper → fromMaybe pause_zipper (next pause_zipper))
+                    return next_pause_time
+                else
+                    return time
     AnimationAndState _ new_state ← s_animation_and_state <%= runAnimationAndState time
     renderer ← use s_renderer
     let document = renderer (realToFrac scale) new_state
