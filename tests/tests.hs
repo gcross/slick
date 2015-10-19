@@ -7,7 +7,9 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
 import Control.Lens (_1, _2, _3, (.~), (%~), (^.), simple)
-import Control.Monad (liftM)
+import Control.Monad ((>=>), liftM)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Writer (Writer, execWriter, tell)
 
 import Data.Composition ((.**))
 import Data.Function (on)
@@ -26,6 +28,7 @@ import Test.HUnit
 import Test.QuickCheck
 
 import Slick.Animation
+import Slick.Animation.Monad
 import Slick.Presentation
 import Slick.Transition
 
@@ -40,6 +43,12 @@ instance Random Rational where
 
 runAndReturnAnimation :: CombinationMode → s → PresentationM s α → Animation s
 runAndReturnAnimation = (^. (p_animation_and_state . as_animation)) .** execPresentationIn
+
+runAndReturnAnimationState :: CombinationMode → s → PresentationM s α → AnimationState s
+runAndReturnAnimationState combination_mode initial_state presentation_monad =
+    AnimationState
+        (runAndReturnAnimation combination_mode initial_state presentation_monad)
+        initial_state
 
 testAnimationsEqual :: (Eq s, Show s) ⇒ String → s → Animation s → Animation s → Test.Framework.Test
 testAnimationsEqual label initial_state correct_animation actual_animation =
@@ -234,6 +243,24 @@ tests =
                         appendAnimation test_tuple_animation2
                     )
                 ]
+            ]
+        ,testGroup "correct state after navigation"
+            [testCase "example 1" $
+                 let values :: [Rational]
+                     values = [0,1,2,1,0,1,2,1,0,2,0,2,1,0,1,2,0,1,2,1,0]
+
+                     animation_state :: AnimationState Rational
+                     animation_state =
+                        runAndReturnAnimationState Serial 0 $ do
+                            linearTo id 1 1
+                            linearTo id 1 2
+
+                     animation_monad :: AnimationM Rational (Writer [Rational]) ()
+                     animation_monad = mapM_ (runAt >=> lift . tell . (:[])) values
+
+                     resulting_values :: [Rational]
+                     resulting_values = execWriter . flip evalAnimationM animation_state $ animation_monad
+                in values @=? resulting_values
             ]
         ]
     ,testGroup "Slick.Transition"

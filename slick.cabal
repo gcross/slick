@@ -62,6 +62,7 @@ Test-suite tests
         test-framework == 0.8.*,
         test-framework-hunit == 0.3.*,
         test-framework-quickcheck2 == 0.3.*,
+        transformers == 0.4.*,
         QuickCheck >= 2.7 && < 3
 
 Executable example

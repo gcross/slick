@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
@@ -5,7 +6,11 @@ module Slick.Animation.Monad where
 
 import Control.Lens ((^.))
 import Control.Lens.TH (makeLenses)
+import Control.Monad (Monad)
+import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.State.Strict (StateT(..),evalStateT,execStateT,get,put)
+
+import Data.Functor (Functor)
 
 import Slick.Animation
 
@@ -16,6 +21,7 @@ data AnimationState s = AnimationState
 makeLenses ''AnimationState
 
 newtype AnimationM s m α = AnimationM { unwrapAnimationM :: StateT (AnimationState s) m α }
+  deriving (Functor, Applicative, Monad, MonadTrans)
 
 startAnimationM :: Monad m ⇒ Animation s → s → AnimationM s m ()
 startAnimationM animation state = AnimationM . put $ AnimationState animation state
