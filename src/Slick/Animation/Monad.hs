@@ -34,8 +34,8 @@ runAt t = AnimationM $ do
 runAnimationM :: Monad m ⇒ AnimationM s m α → AnimationState s → m (α, AnimationState s)
 runAnimationM = runStateT . unwrapAnimationM
 
-evalanimationm :: Monad m ⇒ AnimationM s m α → AnimationState s → m α
-evalanimationm = evalStateT . unwrapAnimationM
+evalAnimationM :: Monad m ⇒ AnimationM s m α → AnimationState s → m α
+evalAnimationM = evalStateT . unwrapAnimationM
 
 execAnimationM :: Monad m ⇒ AnimationM s m α → AnimationState s → m (AnimationState s)
 execAnimationM = execStateT . unwrapAnimationM
