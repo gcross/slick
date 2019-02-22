@@ -126,6 +126,8 @@ void slick_write_to_handle(RsvgHandle *handle, unsigned char *buf, unsigned long
 
 void slick_write_document(void *slick_state, double scale, RsvgHandle* handle);
 void slick_toggle_mode(void *slick_state);
+void slick_go_left(void *slick_state);
+void slick_go_right(void *slick_state);
 
 int slick_run(const int initial_width, const int initial_height, void *slick_state) {
     int width = initial_width, height = initial_height;
@@ -135,6 +137,9 @@ int slick_run(const int initial_width, const int initial_height, void *slick_sta
     // window.ToggleFullScreen();
     SDL_Renderer_ renderer(window._);
     SDL_SetWindowBordered(window._, SDL_TRUE);
+
+    bool leftright_pressed = false;
+
     while(true) {
         CairoImageSurface cairo_surface(width, height);
         CairoContext context(cairo_surface._);
@@ -170,6 +175,24 @@ int slick_run(const int initial_width, const int initial_height, void *slick_sta
                     case SDLK_ESCAPE: return 0;
                     case SDLK_SPACE: slick_toggle_mode(slick_state); break;
                     case SDLK_f: window.ToggleFullScreen(); break;
+                    case SDLK_LEFT:
+                        if(not leftright_pressed) slick_go_left(slick_state);
+                        leftright_pressed = true;
+                        break;
+                    case SDLK_RIGHT:
+                        if(not leftright_pressed) slick_go_right(slick_state);
+                        leftright_pressed = true;
+                        break;
+                }
+                break;
+            case SDL_KEYUP:
+                switch(event.key.keysym.sym) {
+                    case SDLK_LEFT:
+                        leftright_pressed = false;
+                        break;
+                    case SDLK_RIGHT:
+                        leftright_pressed = false;
+                        break;
                 }
         }
     }

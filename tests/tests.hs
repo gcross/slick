@@ -14,6 +14,8 @@ import Control.Monad.Trans.Writer (Writer, execWriter, tell)
 import Data.Composition ((.**))
 import Data.Function (on)
 import Data.List (intercalate)
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict ((!), Map)
 
 import Text.Printf (printf)
 
@@ -243,6 +245,25 @@ tests =
                         appendAnimation test_tuple_animation2
                     )
                 ]
+            ,testGroup "three animations"
+                [testAnimationsEqual "parallel" (0::Rational,0::Rational)
+                    (cachelessAnimation 2.5 $ \t (x,y) →
+                        (case () of
+                            _ | t <= 1 → t
+                              | t <= 2 → 1
+                              | t <= 2.5 → 1 - (t-2)
+                              | otherwise → 0.5
+                        ,t
+                        )
+                    )
+                    (runAndReturnAnimation Serial (0::Rational,0::Rational) $ do
+                        in_ Parallel $ do
+                            linearTo _1 1 1
+                            linearTo _2 1 2
+                        linearTo _1 1 0.5
+                    )
+
+                ]
             ]
         ,testGroup "correct state after navigation"
             [testCase "example 1" $
@@ -261,6 +282,30 @@ tests =
                      resulting_values :: [Rational]
                      resulting_values = execWriter . flip evalAnimationM animation_state $ animation_monad
                 in values @=? resulting_values
+            ,testCase "example 2" $
+                 let values :: [Rational]
+                     values = [2,0,1,2,1,0,2,2.5,2,2.5,2,1,2,2.5,0,0,2,2.5,2,0,1,0,2.5,1,2.5,0]
+
+                     correct_resulting_values_map :: Map Rational (Rational,Rational)
+                     correct_resulting_values_map = Map.fromList [(0,(0,0)), (1,(1,1)), (2,(1,2)), (2.5,(1,1))]
+
+                     correct_resulting_values :: [(Rational,Rational)]
+                     correct_resulting_values = map (correct_resulting_values_map !) values
+
+                     animation_state :: AnimationState (Rational, Rational)
+                     animation_state =
+                        runAndReturnAnimationState Serial (0,0) $ do
+                            in_ Parallel $ do
+                                linearTo _1 1 1
+                                linearTo _2 1 2
+                            linearTo _1 1 0.5
+
+                     animation_monad :: AnimationM (Rational,Rational) (Writer [(Rational,Rational)]) ()
+                     animation_monad = mapM_ (runAt >=> lift . tell . (:[])) values
+
+                     resulting_values :: [(Rational,Rational)]
+                     resulting_values = execWriter . flip evalAnimationM animation_state $ animation_monad
+                in correct_resulting_values @=? resulting_values
             ]
         ]
     ,testGroup "Slick.Transition"

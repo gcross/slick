@@ -56,6 +56,7 @@ Test-suite tests
         slick,
         base,
         composition == 1.0.*,
+        containers == 0.5.*,
         HUnit >= 1.2 && < 1.4,
         lens >= 4.9 && < 5,
         random == 1.*,

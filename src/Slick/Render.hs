@@ -17,7 +17,7 @@ import Data.Conduit ((=$=), await, runConduit)
 import Data.Default (def)
 import Data.IORef
 import qualified Data.List.PointedList as PointedList
-import Data.List.PointedList (PointedList, focus, fromList, next, suffix)
+import Data.List.PointedList (PointedList, focus, fromList, next, previous, suffix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime, getCurrentTime)
 
@@ -39,6 +39,7 @@ foreign import ccall "slick_run" c_slick_run :: CInt → CInt → Ptr () → IO 
 data Mode =
     RunMode UTCTime Time
   | PauseMode Time
+  deriving (Eq, Show)
 
 data SlickState s = SlickState
     {   _s_mode :: Mode
@@ -61,6 +62,7 @@ foreign export ccall slick_write_document :: Ptr () → CDouble → Ptr () → I
 slick_write_document :: Ptr () → CDouble → Ptr () → IO ()
 slick_write_document state_ptr scale rsvg_handle = withState state_ptr $ do
     mode ← use s_mode
+    liftIO . putStrLn . show $ mode
     time ← case mode of
         PauseMode time → return time
         RunMode starting_time additional_time → do
@@ -98,6 +100,31 @@ slick_toggle_mode state_ptr = withState state_ptr $ do
             RunMode starting_time additional_time → PauseMode $ realToFrac (current_time `diffUTCTime` starting_time) + additional_time
             PauseMode additional_time → RunMode current_time additional_time
       )
+
+foreign export ccall slick_go_left :: Ptr () → IO ()
+
+slick_go_left :: Ptr () → IO ()
+slick_go_left state_ptr = withState state_ptr $ do
+    pause_zipper ← use s_pause_zipper
+    case previous pause_zipper of
+         Nothing → do
+            liftIO $ putStrLn "Going Left to 0.0001"
+            s_mode .= PauseMode 0.00001
+         Just new_pause_zipper → do
+            liftIO $ putStrLn ("Going Left to " ++ show (new_pause_zipper ^. focus))
+            s_pause_zipper .= new_pause_zipper
+            s_mode .= PauseMode (new_pause_zipper ^. focus)
+
+foreign export ccall slick_go_right :: Ptr () → IO ()
+
+slick_go_right :: Ptr () → IO ()
+slick_go_right state_ptr = withState state_ptr $ do
+    pause_zipper ← use s_pause_zipper
+    liftIO $ putStrLn ("Going Right to " ++ show (pause_zipper ^. focus))
+    s_mode .= PauseMode (pause_zipper ^. focus)
+    case next pause_zipper of
+         Nothing → return ()
+         Just new_pause_zipper → s_pause_zipper .= new_pause_zipper
 
 viewAnimation :: Presentation s → (Double → s → Document) → IO ()
 viewAnimation presentation render = do
